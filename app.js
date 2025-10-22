@@ -544,75 +544,148 @@ function openOrderModal(order) {
   ).join('');
   
   modalBody.innerHTML = `
-    <div class="detail-row">
-      <span class="detail-label">Order ID</span>
-      <span class="detail-value">${order.id}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Deal</span>
-      <span class="detail-value">${order.dealName}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Products</span>
-      <div class="detail-value">
-        <ul style="margin: 0; padding-left: 20px;">
-          ${productsHTML}
-        </ul>
+    <div class="modal-section">
+      <h3>Order Information</h3>
+      <div class="detail-grid">
+        <div class="detail-row">
+          <span class="detail-label">Order ID</span>
+          <span class="detail-value">${order.id}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Status</span>
+          <span class="detail-value">${order.status.replace('_', ' ').toUpperCase()}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Created By</span>
+          <span class="detail-value">${order.createdBy}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Created At</span>
+          <span class="detail-value">${order.createdAt}</span>
+        </div>
       </div>
     </div>
-    <div class="detail-row">
-      <span class="detail-label">Customer Address</span>
-      <span class="detail-value">${order.address}</span>
+
+    <div class="modal-section">
+      <h3>Deal Details</h3>
+      <div class="detail-grid">
+        <div class="detail-row">
+          <span class="detail-label">Deal Name</span>
+          <span class="detail-value">${order.dealName}</span>
+        </div>
+      </div>
     </div>
-    <div class="detail-row">
-      <span class="detail-label">GST Number</span>
-      <span class="detail-value">${order.gst}</span>
+
+    <div class="modal-section">
+      <h3>Products</h3>
+      <div class="detail-row">
+        <div class="detail-value">
+          <ul style="margin: 0; padding-left: 20px;">
+            ${productsHTML}
+          </ul>
+        </div>
+      </div>
     </div>
-    ${order.discountCode ? `<div class="detail-row">
-      <span class="detail-label">Discount Code</span>
-      <span class="detail-value">${order.discountCode}</span>
+
+    <div class="modal-section">
+      <h3>Customer Information</h3>
+      <div class="detail-grid">
+        <div class="detail-row" style="grid-column: 1 / -1;">
+          <span class="detail-label">Customer Address</span>
+          <span class="detail-value">${order.address}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">GST Number</span>
+          <span class="detail-value">${order.gst}</span>
+        </div>
+        ${order.discountCode ? `<div class="detail-row">
+          <span class="detail-label">Discount Code</span>
+          <span class="detail-value">${order.discountCode}</span>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h3>Shipping Information</h3>
+      <div class="detail-grid">
+        <div class="detail-row">
+          <span class="detail-label">LR Number (Editable)</span>
+          <div class="editable-field">
+            <input type="text" id="lrNumberEdit" value="${order.lrNumber || ''}" placeholder="Enter LR Number" />
+            <button class="btn-save" onclick="saveLRNumber('${order.id}')">💾 Save LR Number</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${order.custom1 || order.custom2 ? `<div class="modal-section">
+      <h3>Custom Fields</h3>
+      <div class="detail-grid">
+        ${order.custom1 ? `<div class="detail-row">
+          <span class="detail-label">Custom Field 1</span>
+          <span class="detail-value">${order.custom1}</span>
+        </div>` : ''}
+        ${order.custom2 ? `<div class="detail-row">
+          <span class="detail-label">Custom Field 2</span>
+          <span class="detail-value">${order.custom2}</span>
+        </div>` : ''}
+      </div>
     </div>` : ''}
-    ${order.lrNumber ? `<div class="detail-row">
-      <span class="detail-label">LR Number</span>
-      <span class="detail-value">${order.lrNumber}</span>
-    </div>` : ''}
-    ${order.custom1 ? `<div class="detail-row">
-      <span class="detail-label">Custom Field 1</span>
-      <span class="detail-value">${order.custom1}</span>
-    </div>` : ''}
-    ${order.custom2 ? `<div class="detail-row">
-      <span class="detail-label">Custom Field 2</span>
-      <span class="detail-value">${order.custom2}</span>
-    </div>` : ''}
-    <div class="detail-row">
-      <span class="detail-label">Status</span>
-      <span class="detail-value">${order.status.replace('_', ' ').toUpperCase()}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Created By</span>
-      <span class="detail-value">${order.createdBy}</span>
-    </div>
-    <div class="detail-row">
-      <span class="detail-label">Created At</span>
-      <span class="detail-value">${order.createdAt}</span>
-    </div>
   `;
   
   modal.classList.add('show');
 }
 
-function closeModal() {
-  const modal = document.getElementById('orderModal');
-  modal.classList.remove('show');
-}
-
-// Close modal on outside click
-window.addEventListener('click', (e) => {
-  const modal = document.getElementById('orderModal');
-  if (e.target === modal) {
-    closeModal();
+// ===============================================
+// SAVE LR NUMBER
+// ===============================================
+async function saveLRNumber(orderId) {
+  const lrNumber = document.getElementById('lrNumberEdit').value;
+  
+  try {
+    // Find all rows with this order ID and update LR number
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.ORDERS}!A2:M`,
+    });
+    
+    const rows = response.result.values || [];
+    const updates = [];
+    
+    rows.forEach((row, idx) => {
+      if (row[0] === orderId) {
+        updates.push({
+          range: `${SHEETS.ORDERS}!H${idx + 2}`, // H column is LR Number
+          values: [[lrNumber]]
+        });
+      }
+    });
+    
+    if (updates.length > 0) {
+      await gapi.client.sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          data: updates,
+          valueInputOption: 'USER_ENTERED'
+        }
+      });
+      
+      showToast('LR Number saved successfully!');
+      await loadOrders();
+      renderKanban();
+      
+      // Update the modal with new data
+      const updatedOrder = ordersData.find(o => o.id === orderId);
+      if (updatedOrder) {
+        closeModal();
+        setTimeout(() => openOrderModal(updatedOrder), 300);
+      }
+    }
+  } catch (err) {
+    console.error('Error saving LR number:', err);
+    showToast('Error saving LR number: ' + err.message, true);
   }
-});
+}
 
 // ===============================================
 // DRAG AND DROP
