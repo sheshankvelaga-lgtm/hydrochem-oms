@@ -1,9 +1,11 @@
 // ===============================================
-// CONFIGURATION - REPLACE WITH YOUR VALUES
+// CONFIGURATION
 // ===============================================
 const CLIENT_ID = '611448944135-g8ajh2ap7u6phcl1dr5q8ag4e3kc9n9r.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAO_A0iOhJbDgl3y7AXCFVNWSdddaDelqQ';
-const SPREADSHEET_ID = '1kGmXilJlk4z-dQ29WnGC-wRPL1jG3kUyVcSx9VO0J0U';
+
+// Apps Script API URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzF7Jc5j4WlO0Y5jVzKqJ6-FbcQhLsBL91VXnhgw6V5adVzEs6UA1B8au0KM4gAO9WmaA/exec';
 
 // Admin users who can delete orders
 const ADMIN_USERS = [
@@ -14,21 +16,13 @@ const ADMIN_USERS = [
 // ===============================================
 // GOOGLE API SETUP
 // ===============================================
-const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
+const SCOPES = 'https://www.googleapis.com/auth/userinfo.email';
 
 let tokenClient;
 let gapiInited = false;
 let gisInited = false;
 let currentUser = null;
 let isAdmin = false;
-
-// Sheet tabs
-const SHEETS = {
-  DEALS: 'Deals',
-  ORDERS: 'Orders',
-  PRODUCTS: 'Products'
-};
 
 // Data cache
 let dealsData = [];
@@ -48,7 +42,7 @@ async function initializeGapiClient() {
   try {
     await gapi.client.init({
       apiKey: API_KEY,
-      discoveryDocs: [DISCOVERY_DOC],
+      discoveryDocs: [],
     });
     gapiInited = true;
     console.log('GAPI client initialized');
@@ -107,8 +101,6 @@ function handleAuthClick() {
       });
       
       if (!userInfoResponse.ok) {
-        const errorText = await userInfoResponse.text();
-        console.error('UserInfo API error:', errorText);
         throw new Error(`Failed to get user info: ${userInfoResponse.status}`);
       }
       
@@ -160,11 +152,64 @@ function handleSignoutClick() {
 }
 
 // ===============================================
+// API CALLS TO APPS SCRIPT
+// ===============================================
+async function callAppsScript(action, params = {}) {
+  const payload = {
+    action: action,
+    userEmail: currentUser,
+    ...params
+  };
+  
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors', // Important for Apps Script
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    // Note: With no-cors mode, we can't read the response
+    // So we'll use a different approach - redirect mode
+    return true;
+  } catch (error) {
+    console.error('Apps Script API error:', error);
+    throw error;
+  }
+}
+
+async function callAppsScriptWithResponse(action, params = {}) {
+  const payload = {
+    action: action,
+    userEmail: currentUser,
+    ...params
+  };
+  
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    const text = await response.text();
+    return JSON.parse(text);
+  } catch (error) {
+    console.error('Apps Script API error:', error);
+    throw error;
+  }
+}
+
+// ===============================================
 // DATA LOADING
 // ===============================================
 async function loadAllData() {
   try {
-    console.log('Loading data from Google Sheets...');
+    console.log('Loading data from Apps Script API...');
     await loadDeals();
     await loadProducts();
     await loadOrders();
@@ -188,24 +233,11 @@ async function refreshData() {
 
 async function loadDeals() {
   try {
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.DEALS}!A2:Z`,
-    });
-    
-    const rows = response.result.values || [];
-    dealsData = rows.map(row => ({
-      id: row[0] || '',
-      name: row[1] || '',
-      company: row[2] || '',
-      amount: row[3] || '',
-      pipeline: row[4] || '',
-      stage: row[5] || ''
-    }));
+    const result = await callAppsScriptWithResponse('getDeals');
+    dealsData = result.deals || [];
     
     console.log('Loaded deals:', dealsData.length);
     
-    // Populate deal dropdown
     const select = document.getElementById('dealSelect');
     select.innerHTML = '<option value="">Select a deal...</option>';
     dealsData.forEach(deal => {
@@ -222,24 +254,10 @@ async function loadDeals() {
 
 async function loadProducts() {
   try {
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.PRODUCTS}!A2:E`,
-    });
-    
-    const rows = response.result.values || [];
-    productsData = rows
-      .filter(row => row[4] === 'TRUE' || row[4] === true || row[4] === 'Yes')
-      .map(row => ({
-        id: row[0] || '',
-        name: row[1] || '',
-        unit: row[2] || 'L',
-        price: row[3] || '0'
-      }));
+    const result = await callAppsScriptWithResponse('getProducts');
+    productsData = result.products || [];
     
     console.log('Loaded products:', productsData.length);
-    
-    // Populate product dropdowns
     updateProductDropdowns();
   } catch (err) {
     console.error('Error loading products:', err);
@@ -262,46 +280,8 @@ function updateProductDropdowns() {
 
 async function loadOrders() {
   try {
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.ORDERS}!A2:M`,
-    });
-    
-    const rows = response.result.values || [];
-    
-    // Group orders by Order ID
-    const orderMap = new Map();
-    
-    rows.forEach((row, idx) => {
-      const orderId = row[0] || `ORD-${Date.now()}-${idx}`;
-      
-      if (!orderMap.has(orderId)) {
-        orderMap.set(orderId, {
-          rowIndex: idx + 2,
-          id: orderId,
-          dealName: row[1] || '',
-          products: [],
-          discountCode: row[4] || '',
-          address: row[5] || '',
-          gst: row[6] || '',
-          lrNumber: row[7] || '',
-          status: row[8] || 'placed',
-          createdBy: row[9] || '',
-          createdAt: row[10] || '',
-          custom1: row[11] || '',
-          custom2: row[12] || ''
-        });
-      }
-      
-      // Add product to this order
-      const order = orderMap.get(orderId);
-      order.products.push({
-        name: row[2] || '',
-        volume: row[3] || ''
-      });
-    });
-    
-    ordersData = Array.from(orderMap.values());
+    const result = await callAppsScriptWithResponse('getOrders');
+    ordersData = result.orders || [];
     console.log('Loaded orders:', ordersData.length);
   } catch (err) {
     console.error('Error loading orders:', err);
@@ -366,7 +346,6 @@ async function createOrder() {
   const custom1 = document.getElementById('custom1Input').value;
   const custom2 = document.getElementById('custom2Input').value;
 
-  // Get all products
   const productItems = document.querySelectorAll('.product-item');
   const products = [];
   
@@ -388,33 +367,20 @@ async function createOrder() {
   }
 
   const orderId = `ORD-${Date.now()}`;
-  const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-  
-  // Create one row per product
-  const rows = products.map(product => [
-    orderId,
-    dealName,
-    product.name,
-    product.volume,
-    discountCode,
-    address,
-    gst,
-    lrNumber,
-    'placed',
-    currentUser,
-    timestamp,
-    custom1,
-    custom2
-  ]);
 
   try {
-    await gapi.client.sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.ORDERS}!A:M`,
-      valueInputOption: 'USER_ENTERED',
-      resource: {
-        values: rows
-      }
+    showToast('Creating order...');
+    
+    await callAppsScriptWithResponse('createOrder', {
+      orderId,
+      dealName,
+      products,
+      discountCode,
+      address,
+      gst,
+      lrNumber,
+      custom1,
+      custom2
     });
 
     // Clear form
@@ -426,7 +392,6 @@ async function createOrder() {
     document.getElementById('custom1Input').value = '';
     document.getElementById('custom2Input').value = '';
     
-    // Reset product rows
     const container = document.getElementById('productItems');
     container.innerHTML = `
       <div class="product-item" data-product-index="0">
@@ -446,9 +411,12 @@ async function createOrder() {
     productRowCount = 1;
     updateProductDropdowns();
 
-    await loadOrders();
-    renderKanban();
-    showToast(`Order created successfully with ${products.length} product(s)!`);
+    // Wait a moment then reload
+    setTimeout(async () => {
+      await loadOrders();
+      renderKanban();
+      showToast(`Order created successfully with ${products.length} product(s)!`);
+    }, 1000);
   } catch (err) {
     console.error('Error creating order:', err);
     showToast('Error creating order: ' + err.message, true);
@@ -472,10 +440,7 @@ function renderKanban() {
       lane.appendChild(card);
     });
     
-    // Update count
     document.getElementById(`count-${status}`).textContent = orders.length;
-    
-    // Setup drop zone
     setupDropZone(lane);
   });
 }
@@ -487,7 +452,6 @@ function createCard(order) {
   card.dataset.orderId = order.id;
   card.dataset.rowIndex = order.rowIndex;
   
-  // Summary of products
   const productSummary = order.products.length > 1 
     ? `${order.products.length} products` 
     : `${order.products[0].name}`;
@@ -500,7 +464,7 @@ function createCard(order) {
         <div class="card-title">${order.dealName}</div>
         <div class="card-id">${order.id}</div>
       </div>
-      ${isAdmin ? `<button class="delete-btn" onclick="deleteOrder('${order.id}', ${order.rowIndex}); event.stopPropagation();">🗑️</button>` : ''}
+      ${isAdmin ? `<button class="delete-btn" onclick="deleteOrder('${order.id}'); event.stopPropagation();">🗑️</button>` : ''}
     </div>
     <div class="card-details">
       <div class="card-row">
@@ -521,7 +485,6 @@ function createCard(order) {
     </div>
   `;
   
-  // Click to open modal
   card.addEventListener('click', (e) => {
     if (!e.target.classList.contains('delete-btn')) {
       openOrderModal(order);
@@ -533,7 +496,7 @@ function createCard(order) {
 }
 
 // ===============================================
-// ORDER DETAIL MODAL (CORRECTED)
+// ORDER DETAIL MODAL
 // ===============================================
 function openOrderModal(order) {
   const modal = document.getElementById('orderModal');
@@ -641,7 +604,6 @@ function closeModal() {
   modal.classList.remove('show');
 }
 
-// Close modal on outside click
 window.onclick = function(event) {
   const modal = document.getElementById('orderModal');
   if (event.target === modal) {
@@ -650,62 +612,33 @@ window.onclick = function(event) {
 }
 
 // ===============================================
-// SAVE LR NUMBER (CORRECTED)
+// SAVE LR NUMBER
 // ===============================================
 async function saveLRNumber(orderId) {
   const lrInput = document.getElementById('lrNumberEdit');
-  if (!lrInput) {
-    showToast('Error: LR input field not found', true);
-    return;
-  }
+  if (!lrInput) return;
   
   const lrNumber = lrInput.value.trim();
   
   try {
     showToast('Saving LR Number...');
     
-    // Find all rows with this order ID and update LR number
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.ORDERS}!A2:M`,
+    await callAppsScriptWithResponse('updateLRNumber', {
+      orderId,
+      lrNumber
     });
     
-    const rows = response.result.values || [];
-    const updates = [];
-    
-    rows.forEach((row, idx) => {
-      if (row[0] === orderId) {
-        updates.push({
-          range: `${SHEETS.ORDERS}!H${idx + 2}`, // H column is LR Number (column 8)
-          values: [[lrNumber]]
-        });
-      }
-    });
-    
-    if (updates.length > 0) {
-      await gapi.client.sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: {
-          data: updates,
-          valueInputOption: 'USER_ENTERED'
-        }
-      });
-      
-      showToast('LR Number saved successfully!');
-      
-      // Reload data
+    setTimeout(async () => {
       await loadOrders();
       renderKanban();
       
-      // Close and reopen modal with updated data
       const updatedOrder = ordersData.find(o => o.id === orderId);
       if (updatedOrder) {
         closeModal();
         setTimeout(() => openOrderModal(updatedOrder), 300);
       }
-    } else {
-      showToast('No orders found with this ID', true);
-    }
+      showToast('LR Number saved successfully!');
+    }, 1000);
   } catch (err) {
     console.error('Error saving LR number:', err);
     showToast('Error saving LR number: ' + err.message, true);
@@ -754,37 +687,18 @@ function setupDropZone(lane) {
 
 async function updateOrderStatus(orderId, newStatus) {
   try {
-    // Find all rows with this order ID and update their status
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.ORDERS}!A2:M`,
+    showToast('Updating status...');
+    
+    await callAppsScriptWithResponse('updateOrderStatus', {
+      orderId,
+      newStatus
     });
     
-    const rows = response.result.values || [];
-    const updates = [];
-    
-    rows.forEach((row, idx) => {
-      if (row[0] === orderId) {
-        updates.push({
-          range: `${SHEETS.ORDERS}!I${idx + 2}`,
-          values: [[newStatus]]
-        });
-      }
-    });
-    
-    if (updates.length > 0) {
-      await gapi.client.sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        resource: {
-          data: updates,
-          valueInputOption: 'USER_ENTERED'
-        }
-      });
-    }
-    
-    await loadOrders();
-    renderKanban();
-    showToast(`Order moved to ${newStatus.replace('_', ' ')}`);
+    setTimeout(async () => {
+      await loadOrders();
+      renderKanban();
+      showToast(`Order moved to ${newStatus.replace('_', ' ')}`);
+    }, 1000);
   } catch (err) {
     console.error('Error updating order:', err);
     showToast('Error updating order: ' + err.message, true);
@@ -792,9 +706,9 @@ async function updateOrderStatus(orderId, newStatus) {
 }
 
 // ===============================================
-// DELETE ORDER (Admin only)
+// DELETE ORDER
 // ===============================================
-async function deleteOrder(orderId, rowIndex) {
+async function deleteOrder(orderId) {
   if (!isAdmin) {
     showToast('Only admins can delete orders', true);
     return;
@@ -805,51 +719,17 @@ async function deleteOrder(orderId, rowIndex) {
   }
   
   try {
-    // Find all rows with this order ID
-    const response = await gapi.client.sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.ORDERS}!A2:M`,
+    showToast('Deleting order...');
+    
+    await callAppsScriptWithResponse('deleteOrder', {
+      orderId
     });
     
-    const rows = response.result.values || [];
-    const rowsToDelete = [];
-    
-    rows.forEach((row, idx) => {
-      if (row[0] === orderId) {
-        rowsToDelete.push(idx + 2); // +2 for header and 0-index
-      }
-    });
-    
-    // Get sheet ID
-    const sheetResponse = await gapi.client.sheets.spreadsheets.get({
-      spreadsheetId: SPREADSHEET_ID
-    });
-    
-    const ordersSheet = sheetResponse.result.sheets.find(s => s.properties.title === SHEETS.ORDERS);
-    const sheetId = ordersSheet ? ordersSheet.properties.sheetId : 0;
-    
-    // Delete rows in reverse order (from bottom to top)
-    const deleteRequests = rowsToDelete.reverse().map(rowNum => ({
-      deleteDimension: {
-        range: {
-          sheetId: sheetId,
-          dimension: 'ROWS',
-          startIndex: rowNum - 1,
-          endIndex: rowNum
-        }
-      }
-    }));
-    
-    await gapi.client.sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      resource: {
-        requests: deleteRequests
-      }
-    });
-    
-    await loadOrders();
-    renderKanban();
-    showToast('Order deleted successfully');
+    setTimeout(async () => {
+      await loadOrders();
+      renderKanban();
+      showToast('Order deleted successfully');
+    }, 1000);
   } catch (err) {
     console.error('Error deleting order:', err);
     showToast('Error deleting order: ' + err.message, true);
