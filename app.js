@@ -1,11 +1,11 @@
 // ===============================================
 // CONFIGURATION - REPLACE WITH YOUR VALUES
 // ===============================================
-const CLIENT_ID = '611448944135-g8ajh2ap7u6phcl1dr5q8ag4e3kc9n9r.apps.googleusercontent.com'; // From Google Cloud Console
-const API_KEY = 'AIzaSyAO_A0iOhJbDgl3y7AXCFVNWSdddaDelqQ'; // From Google Cloud Console
-const SPREADSHEET_ID = '1kGmXilJlk4z-dQ29WnGC-wRPL1jG3kUyVcSx9VO0J0U'; // From Google Sheet URL
+const CLIENT_ID = '611448944135-g8ajh2ap7u6phcl1dr5q8ag4e3kc9n9r.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyAO_A0iOhJbDgl3y7AXCFVNWSdddaDelqQ';
+const SPREADSHEET_ID = '1kGmXilJlk4z-dQ29WnGC-wRPL1jG3kUyVcSx9VO0J0U';
 
-// Admin users who can delete orders (add sales team emails here)
+// Admin users who can delete orders
 const ADMIN_USERS = [
   'sheshank.velaga@hydrochemindustries.com',
   'admin@hydrochemindustries.com'
@@ -15,7 +15,7 @@ const ADMIN_USERS = [
 // GOOGLE API SETUP
 // ===============================================
 const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
 
 let tokenClient;
 let gapiInited = false;
@@ -90,15 +90,27 @@ function handleAuthClick() {
     }
     
     try {
-      // Get user info from Google API
+      console.log('Auth response received, getting user info...');
+      
+      // Get user email using the token
+      const token = gapi.client.getToken();
+      console.log('Access token available:', !!token);
+      
+      if (!token || !token.access_token) {
+        throw new Error('No access token received');
+      }
+      
+      // Get user info from Google API with proper authorization
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: {
-          'Authorization': `Bearer ${gapi.client.getToken().access_token}`
+          'Authorization': `Bearer ${token.access_token}`
         }
       });
       
       if (!userInfoResponse.ok) {
-        throw new Error('Failed to get user info');
+        const errorText = await userInfoResponse.text();
+        console.error('UserInfo API error:', errorText);
+        throw new Error(`Failed to get user info: ${userInfoResponse.status}`);
       }
       
       const userInfo = await userInfoResponse.json();
@@ -151,10 +163,12 @@ function handleSignoutClick() {
 // ===============================================
 async function loadAllData() {
   try {
+    console.log('Loading data from Google Sheets...');
     await loadDeals();
     await loadProducts();
     await loadOrders();
     renderKanban();
+    console.log('All data loaded successfully');
   } catch (err) {
     showToast('Error loading data: ' + err.message, true);
     console.error('Error loading data:', err);
@@ -238,7 +252,7 @@ async function loadOrders() {
     
     const rows = response.result.values || [];
     ordersData = rows.map((row, idx) => ({
-      rowIndex: idx + 2, // +2 because row 1 is header, array is 0-indexed
+      rowIndex: idx + 2,
       id: row[0] || `ORD-${Date.now()}-${idx}`,
       dealName: row[1] || '',
       product: row[2] || '',
@@ -471,7 +485,6 @@ async function deleteOrder(orderId, rowIndex) {
   }
   
   try {
-    // Get the sheet ID for Orders tab (usually 0 for first tab, adjust if needed)
     const sheetResponse = await gapi.client.sheets.spreadsheets.get({
       spreadsheetId: SPREADSHEET_ID
     });
