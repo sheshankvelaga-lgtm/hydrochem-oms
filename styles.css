@@ -1,22 +1,22 @@
 :root {
-  --bg: #f8f9fa;
+  --bg: #f5f7fa;
   --card: #ffffff;
-  --border: #dee2e6;
-  --text: #212529;
-  --muted: #6c757d;
-  --primary: #0d6efd;
-  --primary-hover: #0b5ed7;
-  --success: #198754;
-  --warning: #fd7e14;
-  --danger: #dc3545;
-  --info: #0dcaf0;
-  --placed: #6610f2;
-  --progress: #fd7e14;
-  --shipped: #0dcaf0;
-  --delivered: #198754;
-  --cancelled: #6c757d;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-  --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
+  --border: #e1e4e8;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #06b6d4;
+  --placed: #8b5cf6;
+  --progress: #f59e0b;
+  --shipped: #06b6d4;
+  --delivered: #10b981;
+  --cancelled: #6b7280;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -26,7 +26,7 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
   color: var(--text);
   background: var(--bg);
   line-height: 1.6;
@@ -51,7 +51,7 @@ header {
 }
 
 h1 {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
   color: var(--text);
 }
@@ -63,7 +63,7 @@ h1 {
 }
 
 #userEmail {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -75,15 +75,14 @@ button {
   background: white;
   color: var(--text);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
 button:hover {
-  background: var(--bg);
+  background: #f9fafb;
   border-color: var(--muted);
-  transform: translateY(-1px);
 }
 
 .btn-primary {
@@ -98,28 +97,28 @@ button:hover {
 }
 
 #refreshButton {
-  background: var(--info);
-  color: white;
+  background: white;
+  color: var(--info);
   border-color: var(--info);
 }
 
 #refreshButton:hover {
-  background: #0bb5d6;
-  border-color: #0bb5d6;
+  background: var(--info);
+  color: white;
 }
 
 .order-form {
   max-width: 1400px;
   margin: 24px auto;
-  padding: 24px;
+  padding: 28px;
   background: white;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 }
 
 .order-form h2 {
-  font-size: 18px;
+  font-size: 17px;
   margin-bottom: 20px;
   color: var(--text);
   font-weight: 600;
@@ -154,8 +153,9 @@ textarea {
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
-  transition: all 0.2s;
+  transition: all 0.15s;
   background: #ffffff;
+  color: var(--text);
 }
 
 input:focus,
@@ -163,7 +163,13 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+input:disabled {
+  background: #f3f4f6;
+  color: var(--muted);
+  cursor: not-allowed;
 }
 
 textarea {
@@ -173,10 +179,10 @@ textarea {
 
 .product-list {
   margin-bottom: 20px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px dashed var(--border);
+  padding: 18px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
 .product-list h3 {
@@ -203,12 +209,20 @@ textarea {
   font-size: 13px;
 }
 
+.btn-remove:hover {
+  background: #dc2626;
+}
+
 .btn-add-product {
   padding: 8px 16px;
   background: var(--success);
   color: white;
   border: none;
   font-size: 13px;
+}
+
+.btn-add-product:hover {
+  background: #059669;
 }
 
 .kanban-board {
@@ -223,7 +237,7 @@ textarea {
 .column {
   background: white;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   min-height: 500px;
@@ -231,33 +245,32 @@ textarea {
 }
 
 .column-header {
-  padding: 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
-  background: #f8f9fa;
-  border-radius: 12px 12px 0 0;
+  border-radius: 8px 8px 0 0;
 }
 
-.column-header.placed { background: var(--placed); color: white; }
-.column-header.progress { background: var(--progress); color: white; }
-.column-header.shipped { background: var(--shipped); color: #000; }
-.column-header.delivered { background: var(--delivered); color: white; }
-.column-header.cancelled { background: var(--cancelled); color: white; }
+.column-header.placed { background: #f5f3ff; color: #6b21a8; border-bottom-color: #e9d5ff; }
+.column-header.progress { background: #fffbeb; color: #b45309; border-bottom-color: #fde68a; }
+.column-header.shipped { background: #ecfeff; color: #0e7490; border-bottom-color: #a5f3fc; }
+.column-header.delivered { background: #f0fdf4; color: #15803d; border-bottom-color: #bbf7d0; }
+.column-header.cancelled { background: #f9fafb; color: #4b5563; border-bottom-color: #e5e7eb; }
 
 .column-header h3 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .count {
-  background: rgba(255,255,255,0.3);
-  padding: 4px 10px;
-  border-radius: 12px;
+  background: rgba(0,0,0,0.08);
+  padding: 3px 9px;
+  border-radius: 10px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .lane {
@@ -265,29 +278,29 @@ textarea {
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   overflow-y: auto;
 }
 
 .lane.dragover {
-  background: rgba(13, 110, 253, 0.05);
+  background: rgba(37, 99, 235, 0.05);
   outline: 2px dashed var(--primary);
   outline-offset: -6px;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 8px 8px;
 }
 
 .card {
   background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 14px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
   border-color: var(--primary);
 }
@@ -301,20 +314,20 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .card-title {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .card-id {
   font-size: 11px;
   color: var(--muted);
-  font-family: 'Courier New', monospace;
+  font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
 }
 
 .delete-btn {
@@ -327,13 +340,13 @@ textarea {
 }
 
 .delete-btn:hover {
-  background: #bb2d3b;
+  background: #dc2626;
 }
 
 .card-details {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   font-size: 13px;
 }
 
@@ -355,8 +368,8 @@ textarea {
 }
 
 .card-footer {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--muted);
@@ -371,8 +384,8 @@ textarea {
   top: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
 }
 
 .modal.show {
@@ -383,14 +396,14 @@ textarea {
 
 .modal-content {
   background: white;
-  padding: 32px;
-  border-radius: 12px;
-  max-width: 600px;
+  padding: 0;
+  border-radius: 8px;
+  max-width: 700px;
   width: 90%;
   max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: var(--shadow-lg);
-  animation: modalSlideIn 0.3s ease;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: modalSlideIn 0.2s ease;
 }
 
 @keyframes modalSlideIn {
@@ -408,20 +421,21 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--border);
+  background: #f9fafb;
 }
 
 .modal-header h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
+  color: var(--text);
 }
 
 .close-btn {
   background: none;
   border: none;
-  font-size: 28px;
+  font-size: 24px;
   color: var(--muted);
   cursor: pointer;
   padding: 0;
@@ -430,51 +444,110 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 4px;
 }
 
 .close-btn:hover {
   color: var(--text);
-  background: var(--bg);
-  border-radius: 6px;
+  background: #e5e7eb;
 }
 
 .modal-body {
-  display: flex;
-  flex-direction: column;
+  padding: 24px;
+  max-height: calc(85vh - 80px);
+  overflow-y: auto;
+}
+
+.modal-section {
+  margin-bottom: 24px;
+}
+
+.modal-section:last-child {
+  margin-bottom: 0;
+}
+
+.modal-section h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.detail-grid {
+  display: grid;
   gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .detail-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .detail-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .detail-value {
   font-size: 14px;
   color: var(--text);
-  padding: 8px 12px;
-  background: var(--bg);
+  padding: 10px 12px;
+  background: #f9fafb;
   border-radius: 6px;
   border: 1px solid var(--border);
+}
+
+.detail-value ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.detail-value ul li {
+  margin-bottom: 4px;
+}
+
+.editable-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editable-field input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.btn-save {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.btn-save:hover {
+  background: var(--primary-hover);
 }
 
 .toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  padding: 14px 20px;
+  padding: 12px 18px;
   background: var(--success);
   color: white;
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: var(--shadow-lg);
   opacity: 0;
   transform: translateY(20px);
@@ -516,7 +589,7 @@ textarea {
     gap: 12px;
   }
   
-  .form-grid {
+  .form-grid, .detail-grid {
     grid-template-columns: 1fr;
   }
 }
