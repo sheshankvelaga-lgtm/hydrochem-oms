@@ -34,6 +34,7 @@ const SHEETS = {
 let dealsData = [];
 let productsData = [];
 let ordersData = [];
+let productRowCount = 1;
 
 // ===============================================
 // INITIALIZATION
@@ -92,7 +93,6 @@ function handleAuthClick() {
     try {
       console.log('Auth response received, getting user info...');
       
-      // Get user email using the token
       const token = gapi.client.getToken();
       console.log('Access token available:', !!token);
       
@@ -100,7 +100,6 @@ function handleAuthClick() {
         throw new Error('No access token received');
       }
       
-      // Get user info from Google API with proper authorization
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: {
           'Authorization': `Bearer ${token.access_token}`
@@ -124,6 +123,7 @@ function handleAuthClick() {
       document.getElementById('authButton').style.display = 'none';
       document.getElementById('signoutButton').style.display = 'inline-block';
       document.getElementById('orderForm').style.display = 'block';
+      document.getElementById('refreshButton').style.display = 'inline-block';
       
       await loadAllData();
       showToast('Signed in successfully as ' + currentUser);
@@ -152,6 +152,7 @@ function handleSignoutClick() {
     document.getElementById('authButton').style.display = 'inline-block';
     document.getElementById('signoutButton').style.display = 'none';
     document.getElementById('orderForm').style.display = 'none';
+    document.getElementById('refreshButton').style.display = 'none';
     
     clearKanban();
     showToast('Signed out successfully');
@@ -172,6 +173,16 @@ async function loadAllData() {
   } catch (err) {
     showToast('Error loading data: ' + err.message, true);
     console.error('Error loading data:', err);
+  }
+}
+
+async function refreshData() {
+  try {
+    showToast('Refreshing data...');
+    await loadAllData();
+    showToast('Data refreshed successfully!');
+  } catch (err) {
+    showToast('Error refreshing data: ' + err.message, true);
   }
 }
 
@@ -228,19 +239,25 @@ async function loadProducts() {
     
     console.log('Loaded products:', productsData.length);
     
-    // Populate product dropdown
-    const select = document.getElementById('productSelect');
-    select.innerHTML = '<option value="">Select a product...</option>';
+    // Populate product dropdowns
+    updateProductDropdowns();
+  } catch (err) {
+    console.error('Error loading products:', err);
+    throw err;
+  }
+}
+
+function updateProductDropdowns() {
+  const selects = document.querySelectorAll('.product-select');
+  selects.forEach(select => {
+    select.innerHTML = '<option value="">Select product...</option>';
     productsData.forEach(product => {
       const option = document.createElement('option');
       option.value = product.name;
       option.textContent = `${product.name} (₹${product.price}/${product.unit})`;
       select.appendChild(option);
     });
-  } catch (err) {
-    console.error('Error loading products:', err);
-    throw err;
-  }
+  });
 }
 
 async function loadOrders() {
@@ -251,23 +268,40 @@ async function loadOrders() {
     });
     
     const rows = response.result.values || [];
-    ordersData = rows.map((row, idx) => ({
-      rowIndex: idx + 2,
-      id: row[0] || `ORD-${Date.now()}-${idx}`,
-      dealName: row[1] || '',
-      product: row[2] || '',
-      volume: row[3] || '',
-      discountCode: row[4] || '',
-      address: row[5] || '',
-      gst: row[6] || '',
-      lrNumber: row[7] || '',
-      status: row[8] || 'placed',
-      createdBy: row[9] || '',
-      createdAt: row[10] || '',
-      custom1: row[11] || '',
-      custom2: row[12] || ''
-    }));
     
+    // Group orders by Order ID
+    const orderMap = new Map();
+    
+    rows.forEach((row, idx) => {
+      const orderId = row[0] || `ORD-${Date.now()}-${idx}`;
+      
+      if (!orderMap.has(orderId)) {
+        orderMap.set(orderId, {
+          rowIndex: idx + 2,
+          id: orderId,
+          dealName: row[1] || '',
+          products: [],
+          discountCode: row[4] || '',
+          address: row[5] || '',
+          gst: row[6] || '',
+          lrNumber: row[7] || '',
+          status: row[8] || 'placed',
+          createdBy: row[9] || '',
+          createdAt: row[10] || '',
+          custom1: row[11] || '',
+          custom2: row[12] || ''
+        });
+      }
+      
+      // Add product to this order
+      const order = orderMap.get(orderId);
+      order.products.push({
+        name: row[2] || '',
+        volume: row[3] || ''
+      });
+    });
+    
+    ordersData = Array.from(orderMap.values());
     console.log('Loaded orders:', ordersData.length);
   } catch (err) {
     console.error('Error loading orders:', err);
@@ -276,12 +310,55 @@ async function loadOrders() {
 }
 
 // ===============================================
+// MULTI-PRODUCT MANAGEMENT
+// ===============================================
+function addProductRow() {
+  const container = document.getElementById('productItems');
+  const newRow = document.createElement('div');
+  newRow.className = 'product-item';
+  newRow.dataset.productIndex = productRowCount;
+  
+  newRow.innerHTML = `
+    <label>
+      Product
+      <select class="product-select" required>
+        <option value="">Select product...</option>
+      </select>
+    </label>
+    <label>
+      Volume (Liters)
+      <input type="number" class="volume-input" min="1" step="0.1" placeholder="e.g., 100" required />
+    </label>
+    <button type="button" class="btn-remove" onclick="removeProduct(${productRowCount})">✕</button>
+  `;
+  
+  container.appendChild(newRow);
+  productRowCount++;
+  updateProductDropdowns();
+  updateRemoveButtons();
+}
+
+function removeProduct(index) {
+  const row = document.querySelector(`[data-product-index="${index}"]`);
+  if (row) {
+    row.remove();
+    updateRemoveButtons();
+  }
+}
+
+function updateRemoveButtons() {
+  const items = document.querySelectorAll('.product-item');
+  items.forEach((item, idx) => {
+    const btn = item.querySelector('.btn-remove');
+    btn.style.display = items.length > 1 ? 'block' : 'none';
+  });
+}
+
+// ===============================================
 // ORDER CREATION
 // ===============================================
 async function createOrder() {
   const dealName = document.getElementById('dealSelect').value;
-  const product = document.getElementById('productSelect').value;
-  const volume = document.getElementById('volumeInput').value;
   const discountCode = document.getElementById('discountInput').value;
   const address = document.getElementById('addressInput').value;
   const gst = document.getElementById('gstInput').value;
@@ -289,19 +366,36 @@ async function createOrder() {
   const custom1 = document.getElementById('custom1Input').value;
   const custom2 = document.getElementById('custom2Input').value;
 
-  if (!dealName || !product || !volume || !address || !gst) {
-    showToast('Please fill all required fields', true);
+  // Get all products
+  const productItems = document.querySelectorAll('.product-item');
+  const products = [];
+  
+  for (let item of productItems) {
+    const productSelect = item.querySelector('.product-select');
+    const volumeInput = item.querySelector('.volume-input');
+    
+    if (productSelect.value && volumeInput.value) {
+      products.push({
+        name: productSelect.value,
+        volume: volumeInput.value
+      });
+    }
+  }
+
+  if (!dealName || products.length === 0 || !address || !gst) {
+    showToast('Please fill all required fields and add at least one product', true);
     return;
   }
 
   const orderId = `ORD-${Date.now()}`;
   const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
   
-  const newRow = [
+  // Create one row per product
+  const rows = products.map(product => [
     orderId,
     dealName,
-    product,
-    volume,
+    product.name,
+    product.volume,
     discountCode,
     address,
     gst,
@@ -311,7 +405,7 @@ async function createOrder() {
     timestamp,
     custom1,
     custom2
-  ];
+  ]);
 
   try {
     await gapi.client.sheets.spreadsheets.values.append({
@@ -319,24 +413,42 @@ async function createOrder() {
       range: `${SHEETS.ORDERS}!A:M`,
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [newRow]
+        values: rows
       }
     });
 
     // Clear form
     document.getElementById('dealSelect').value = '';
-    document.getElementById('productSelect').value = '';
-    document.getElementById('volumeInput').value = '';
     document.getElementById('discountInput').value = '';
     document.getElementById('addressInput').value = '';
     document.getElementById('gstInput').value = '';
     document.getElementById('lrInput').value = '';
     document.getElementById('custom1Input').value = '';
     document.getElementById('custom2Input').value = '';
+    
+    // Reset product rows
+    const container = document.getElementById('productItems');
+    container.innerHTML = `
+      <div class="product-item" data-product-index="0">
+        <label>
+          Product
+          <select class="product-select" required>
+            <option value="">Select product...</option>
+          </select>
+        </label>
+        <label>
+          Volume (Liters)
+          <input type="number" class="volume-input" min="1" step="0.1" placeholder="e.g., 100" required />
+        </label>
+        <button type="button" class="btn-remove" onclick="removeProduct(0)" style="display:none;">✕</button>
+      </div>
+    `;
+    productRowCount = 1;
+    updateProductDropdowns();
 
     await loadOrders();
     renderKanban();
-    showToast('Order created successfully!');
+    showToast(`Order created successfully with ${products.length} product(s)!`);
   } catch (err) {
     console.error('Error creating order:', err);
     showToast('Error creating order: ' + err.message, true);
@@ -375,30 +487,33 @@ function createCard(order) {
   card.dataset.orderId = order.id;
   card.dataset.rowIndex = order.rowIndex;
   
+  // Summary of products
+  const productSummary = order.products.length > 1 
+    ? `${order.products.length} products` 
+    : `${order.products[0].name}`;
+  
+  const totalVolume = order.products.reduce((sum, p) => sum + parseFloat(p.volume || 0), 0);
+  
   card.innerHTML = `
     <div class="card-header">
       <div>
         <div class="card-title">${order.dealName}</div>
         <div class="card-id">${order.id}</div>
       </div>
-      ${isAdmin ? `<button class="delete-btn" onclick="deleteOrder('${order.id}', ${order.rowIndex})">🗑️</button>` : ''}
+      ${isAdmin ? `<button class="delete-btn" onclick="deleteOrder('${order.id}', ${order.rowIndex}); event.stopPropagation();">🗑️</button>` : ''}
     </div>
     <div class="card-details">
       <div class="card-row">
-        <span class="card-label">Product:</span>
-        <span class="card-value">${order.product}</span>
+        <span class="card-label">Products:</span>
+        <span class="card-value">${productSummary}</span>
       </div>
       <div class="card-row">
-        <span class="card-label">Volume:</span>
-        <span class="card-value">${order.volume} L</span>
+        <span class="card-label">Total Vol:</span>
+        <span class="card-value">${totalVolume} L</span>
       </div>
       ${order.lrNumber ? `<div class="card-row">
         <span class="card-label">LR:</span>
         <span class="card-value">${order.lrNumber}</span>
-      </div>` : ''}
-      ${order.discountCode ? `<div class="card-row">
-        <span class="card-label">Discount:</span>
-        <span class="card-value">${order.discountCode}</span>
       </div>` : ''}
     </div>
     <div class="card-footer">
@@ -406,9 +521,98 @@ function createCard(order) {
     </div>
   `;
   
+  // Click to open modal
+  card.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('delete-btn')) {
+      openOrderModal(order);
+    }
+  });
+  
   setupDragAndDrop(card);
   return card;
 }
+
+// ===============================================
+// ORDER DETAIL MODAL
+// ===============================================
+function openOrderModal(order) {
+  const modal = document.getElementById('orderModal');
+  const modalBody = document.getElementById('modalBody');
+  
+  const productsHTML = order.products.map(p => 
+    `<li>${p.name} - ${p.volume} L</li>`
+  ).join('');
+  
+  modalBody.innerHTML = `
+    <div class="detail-row">
+      <span class="detail-label">Order ID</span>
+      <span class="detail-value">${order.id}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Deal</span>
+      <span class="detail-value">${order.dealName}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Products</span>
+      <div class="detail-value">
+        <ul style="margin: 0; padding-left: 20px;">
+          ${productsHTML}
+        </ul>
+      </div>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Customer Address</span>
+      <span class="detail-value">${order.address}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">GST Number</span>
+      <span class="detail-value">${order.gst}</span>
+    </div>
+    ${order.discountCode ? `<div class="detail-row">
+      <span class="detail-label">Discount Code</span>
+      <span class="detail-value">${order.discountCode}</span>
+    </div>` : ''}
+    ${order.lrNumber ? `<div class="detail-row">
+      <span class="detail-label">LR Number</span>
+      <span class="detail-value">${order.lrNumber}</span>
+    </div>` : ''}
+    ${order.custom1 ? `<div class="detail-row">
+      <span class="detail-label">Custom Field 1</span>
+      <span class="detail-value">${order.custom1}</span>
+    </div>` : ''}
+    ${order.custom2 ? `<div class="detail-row">
+      <span class="detail-label">Custom Field 2</span>
+      <span class="detail-value">${order.custom2}</span>
+    </div>` : ''}
+    <div class="detail-row">
+      <span class="detail-label">Status</span>
+      <span class="detail-value">${order.status.replace('_', ' ').toUpperCase()}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Created By</span>
+      <span class="detail-value">${order.createdBy}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Created At</span>
+      <span class="detail-value">${order.createdAt}</span>
+    </div>
+  `;
+  
+  modal.classList.add('show');
+}
+
+function closeModal() {
+  const modal = document.getElementById('orderModal');
+  modal.classList.remove('show');
+}
+
+// Close modal on outside click
+window.addEventListener('click', (e) => {
+  const modal = document.getElementById('orderModal');
+  if (e.target === modal) {
+    closeModal();
+  }
+});
 
 // ===============================================
 // DRAG AND DROP
@@ -444,23 +648,41 @@ function setupDropZone(lane) {
     if (!draggingCard) return;
     
     const orderId = draggingCard.dataset.orderId;
-    const rowIndex = draggingCard.dataset.rowIndex;
     const newStatus = lane.dataset.status;
     
-    await updateOrderStatus(orderId, rowIndex, newStatus);
+    await updateOrderStatus(orderId, newStatus);
   });
 }
 
-async function updateOrderStatus(orderId, rowIndex, newStatus) {
+async function updateOrderStatus(orderId, newStatus) {
   try {
-    await gapi.client.sheets.spreadsheets.values.update({
+    // Find all rows with this order ID and update their status
+    const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.ORDERS}!I${rowIndex}`,
-      valueInputOption: 'USER_ENTERED',
-      resource: {
-        values: [[newStatus]]
+      range: `${SHEETS.ORDERS}!A2:M`,
+    });
+    
+    const rows = response.result.values || [];
+    const updates = [];
+    
+    rows.forEach((row, idx) => {
+      if (row[0] === orderId) {
+        updates.push({
+          range: `${SHEETS.ORDERS}!I${idx + 2}`,
+          values: [[newStatus]]
+        });
       }
     });
+    
+    if (updates.length > 0) {
+      await gapi.client.sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          data: updates,
+          valueInputOption: 'USER_ENTERED'
+        }
+      });
+    }
     
     await loadOrders();
     renderKanban();
@@ -480,11 +702,27 @@ async function deleteOrder(orderId, rowIndex) {
     return;
   }
   
-  if (!confirm(`Delete order ${orderId}? This cannot be undone.`)) {
+  if (!confirm(`Delete order ${orderId}? This will delete all product lines. This cannot be undone.`)) {
     return;
   }
   
   try {
+    // Find all rows with this order ID
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.ORDERS}!A2:M`,
+    });
+    
+    const rows = response.result.values || [];
+    const rowsToDelete = [];
+    
+    rows.forEach((row, idx) => {
+      if (row[0] === orderId) {
+        rowsToDelete.push(idx + 2); // +2 for header and 0-index
+      }
+    });
+    
+    // Get sheet ID
     const sheetResponse = await gapi.client.sheets.spreadsheets.get({
       spreadsheetId: SPREADSHEET_ID
     });
@@ -492,19 +730,22 @@ async function deleteOrder(orderId, rowIndex) {
     const ordersSheet = sheetResponse.result.sheets.find(s => s.properties.title === SHEETS.ORDERS);
     const sheetId = ordersSheet ? ordersSheet.properties.sheetId : 0;
     
+    // Delete rows in reverse order (from bottom to top)
+    const deleteRequests = rowsToDelete.reverse().map(rowNum => ({
+      deleteDimension: {
+        range: {
+          sheetId: sheetId,
+          dimension: 'ROWS',
+          startIndex: rowNum - 1,
+          endIndex: rowNum
+        }
+      }
+    }));
+    
     await gapi.client.sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId: sheetId,
-              dimension: 'ROWS',
-              startIndex: rowIndex - 1,
-              endIndex: rowIndex
-            }
-          }
-        }]
+        requests: deleteRequests
       }
     });
     
