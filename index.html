@@ -11,6 +11,7 @@
     <div class="header-content">
       <h1>🏭 Hydro Chem Industries - Order Management</h1>
       <div class="user-info">
+        <button id="refreshButton" onclick="refreshData()" style="display:none;">🔄 Refresh</button>
         <span id="userEmail"></span>
         <button id="authButton" onclick="handleAuthClick()">Sign In</button>
         <button id="signoutButton" onclick="handleSignoutClick()" style="display:none;">Sign Out</button>
@@ -20,29 +21,13 @@
 
   <section id="orderForm" class="order-form" style="display:none;">
     <h2>Create New Order</h2>
+    
     <div class="form-grid">
       <label>
         Deal <span class="required">*</span>
         <select id="dealSelect" required>
           <option value="">Select a deal...</option>
         </select>
-      </label>
-
-      <label>
-        Product <span class="required">*</span>
-        <select id="productSelect" required>
-          <option value="">Select a product...</option>
-        </select>
-      </label>
-
-      <label>
-        Volume (Liters) <span class="required">*</span>
-        <input type="number" id="volumeInput" min="1" step="0.1" placeholder="e.g., 100" required />
-      </label>
-
-      <label>
-        Discount Code
-        <input type="text" id="discountInput" placeholder="Optional" />
       </label>
 
       <label>
@@ -53,6 +38,11 @@
       <label>
         GST Number <span class="required">*</span>
         <input type="text" id="gstInput" placeholder="e.g., 27AAAAA0000A1Z5" required />
+      </label>
+
+      <label>
+        Discount Code
+        <input type="text" id="discountInput" placeholder="Optional" />
       </label>
 
       <label>
@@ -69,6 +59,26 @@
         Custom Field 2
         <input type="text" id="custom2Input" placeholder="For future use" />
       </label>
+    </div>
+
+    <div class="product-list">
+      <h3>Products <span class="required">*</span></h3>
+      <div id="productItems">
+        <div class="product-item" data-product-index="0">
+          <label>
+            Product
+            <select class="product-select" required>
+              <option value="">Select product...</option>
+            </select>
+          </label>
+          <label>
+            Volume (Liters)
+            <input type="number" class="volume-input" min="1" step="0.1" placeholder="e.g., 100" required />
+          </label>
+          <button type="button" class="btn-remove" onclick="removeProduct(0)" style="display:none;">✕</button>
+        </div>
+      </div>
+      <button type="button" class="btn-add-product" onclick="addProductRow()">+ Add Another Product</button>
     </div>
 
     <button id="createOrderBtn" onclick="createOrder()" class="btn-primary">
@@ -117,6 +127,19 @@
       <div class="lane" id="lane-cancelled" data-status="cancelled"></div>
     </div>
   </section>
+
+  <!-- Order Detail Modal -->
+  <div id="orderModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Order Details</h2>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        <!-- Details will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast"></div>
 
