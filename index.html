@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hydro Chem Industries - Order Management</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>🏭 Hydro Chem Industries - Order Management</h1>
+      <div class="user-info">
+        <span id="userEmail"></span>
+        <button id="authButton" onclick="handleAuthClick()">Sign In</button>
+        <button id="signoutButton" onclick="handleSignoutClick()" style="display:none;">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <section id="orderForm" class="order-form" style="display:none;">
+    <h2>Create New Order</h2>
+    <div class="form-grid">
+      <label>
+        Deal <span class="required">*</span>
+        <select id="dealSelect" required>
+          <option value="">Select a deal...</option>
+        </select>
+      </label>
+
+      <label>
+        Product <span class="required">*</span>
+        <select id="productSelect" required>
+          <option value="">Select a product...</option>
+        </select>
+      </label>
+
+      <label>
+        Volume (Liters) <span class="required">*</span>
+        <input type="number" id="volumeInput" min="1" step="0.1" placeholder="e.g., 100" required />
+      </label>
+
+      <label>
+        Discount Code
+        <input type="text" id="discountInput" placeholder="Optional" />
+      </label>
+
+      <label>
+        Customer Address <span class="required">*</span>
+        <textarea id="addressInput" rows="2" placeholder="Full address" required></textarea>
+      </label>
+
+      <label>
+        GST Number <span class="required">*</span>
+        <input type="text" id="gstInput" placeholder="e.g., 27AAAAA0000A1Z5" required />
+      </label>
+
+      <label>
+        LR Number
+        <input type="text" id="lrInput" placeholder="Lorry Receipt number" />
+      </label>
+
+      <label>
+        Custom Field 1
+        <input type="text" id="custom1Input" placeholder="For future use" />
+      </label>
+
+      <label>
+        Custom Field 2
+        <input type="text" id="custom2Input" placeholder="For future use" />
+      </label>
+    </div>
+
+    <button id="createOrderBtn" onclick="createOrder()" class="btn-primary">
+      ➕ Create Order
+    </button>
+  </section>
+
+  <section id="kanban" class="kanban-board">
+    <div class="column">
+      <div class="column-header placed">
+        <h3>📝 Order Placed</h3>
+        <span class="count" id="count-placed">0</span>
+      </div>
+      <div class="lane" id="lane-placed" data-status="placed"></div>
+    </div>
+
+    <div class="column">
+      <div class="column-header progress">
+        <h3>⚙️ In Progress</h3>
+        <span class="count" id="count-in_progress">0</span>
+      </div>
+      <div class="lane" id="lane-in_progress" data-status="in_progress"></div>
+    </div>
+
+    <div class="column">
+      <div class="column-header shipped">
+        <h3>🚚 Shipped</h3>
+        <span class="count" id="count-shipped">0</span>
+      </div>
+      <div class="lane" id="lane-shipped" data-status="shipped"></div>
+    </div>
+
+    <div class="column">
+      <div class="column-header delivered">
+        <h3>✅ Delivered</h3>
+        <span class="count" id="count-delivered">0</span>
+      </div>
+      <div class="lane" id="lane-delivered" data-status="delivered"></div>
+    </div>
+
+    <div class="column">
+      <div class="column-header cancelled">
+        <h3>❌ Cancelled</h3>
+        <span class="count" id="count-cancelled">0</span>
+      </div>
+      <div class="lane" id="lane-cancelled" data-status="cancelled"></div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast"></div>
+
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+  <script src="app.js"></script>
+</body>
+</html>
