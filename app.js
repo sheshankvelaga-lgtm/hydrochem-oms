@@ -39,31 +39,42 @@ let ordersData = [];
 // INITIALIZATION
 // ===============================================
 function gapiLoaded() {
+  console.log('GAPI loaded');
   gapi.load('client', initializeGapiClient);
 }
 
 async function initializeGapiClient() {
-  await gapi.client.init({
-    apiKey: API_KEY,
-    discoveryDocs: [DISCOVERY_DOC],
-  });
-  gapiInited = true;
-  maybeEnableButtons();
+  try {
+    await gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: [DISCOVERY_DOC],
+    });
+    gapiInited = true;
+    console.log('GAPI client initialized');
+    maybeEnableButtons();
+  } catch (err) {
+    console.error('Error initializing GAPI client:', err);
+    showToast('Error loading Google APIs: ' + err.message, true);
+  }
 }
 
 function gisLoaded() {
+  console.log('GIS loaded');
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
     callback: '',
   });
   gisInited = true;
+  console.log('Token client initialized');
   maybeEnableButtons();
 }
 
 function maybeEnableButtons() {
+  console.log('gapiInited:', gapiInited, 'gisInited:', gisInited);
   if (gapiInited && gisInited) {
     document.getElementById('authButton').style.display = 'inline-block';
+    console.log('Sign In button enabled');
   }
 }
 
@@ -73,16 +84,29 @@ function maybeEnableButtons() {
 function handleAuthClick() {
   tokenClient.callback = async (resp) => {
     if (resp.error !== undefined) {
-      showToast('Authentication failed', true);
-      throw (resp);
+      showToast('Authentication failed: ' + resp.error, true);
+      console.error('Auth error:', resp);
+      return;
     }
     
-    // Get user info
-    const token = gapi.client.getToken();
-    if (token) {
-      const userInfo = parseJwt(token.access_token);
+    try {
+      // Get user info from Google API
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${gapi.client.getToken().access_token}`
+        }
+      });
+      
+      if (!userInfoResponse.ok) {
+        throw new Error('Failed to get user info');
+      }
+      
+      const userInfo = await userInfoResponse.json();
       currentUser = userInfo.email || 'Unknown User';
       isAdmin = ADMIN_USERS.includes(currentUser);
+      
+      console.log('Signed in as:', currentUser);
+      console.log('Is admin:', isAdmin);
       
       document.getElementById('userEmail').textContent = currentUser;
       document.getElementById('authButton').style.display = 'none';
@@ -90,7 +114,10 @@ function handleAuthClick() {
       document.getElementById('orderForm').style.display = 'block';
       
       await loadAllData();
-      showToast('Signed in successfully!');
+      showToast('Signed in successfully as ' + currentUser);
+    } catch (error) {
+      console.error('Error during sign in:', error);
+      showToast('Error: ' + error.message, true);
     }
   };
 
@@ -119,15 +146,6 @@ function handleSignoutClick() {
   }
 }
 
-function parseJwt(token) {
-  const base64Url = token.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
-    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-  }).join(''));
-  return JSON.parse(jsonPayload);
-}
-
 // ===============================================
 // DATA LOADING
 // ===============================================
@@ -139,86 +157,108 @@ async function loadAllData() {
     renderKanban();
   } catch (err) {
     showToast('Error loading data: ' + err.message, true);
+    console.error('Error loading data:', err);
   }
 }
 
 async function loadDeals() {
-  const response = await gapi.client.sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEETS.DEALS}!A2:Z`,
-  });
-  
-  const rows = response.result.values || [];
-  dealsData = rows.map(row => ({
-    id: row[0] || '',
-    name: row[1] || '',
-    company: row[2] || '',
-    amount: row[3] || '',
-    pipeline: row[4] || '',
-    stage: row[5] || ''
-  }));
-  
-  // Populate deal dropdown
-  const select = document.getElementById('dealSelect');
-  select.innerHTML = '<option value="">Select a deal...</option>';
-  dealsData.forEach(deal => {
-    const option = document.createElement('option');
-    option.value = deal.name;
-    option.textContent = `${deal.name} - ${deal.company}`;
-    select.appendChild(option);
-  });
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.DEALS}!A2:Z`,
+    });
+    
+    const rows = response.result.values || [];
+    dealsData = rows.map(row => ({
+      id: row[0] || '',
+      name: row[1] || '',
+      company: row[2] || '',
+      amount: row[3] || '',
+      pipeline: row[4] || '',
+      stage: row[5] || ''
+    }));
+    
+    console.log('Loaded deals:', dealsData.length);
+    
+    // Populate deal dropdown
+    const select = document.getElementById('dealSelect');
+    select.innerHTML = '<option value="">Select a deal...</option>';
+    dealsData.forEach(deal => {
+      const option = document.createElement('option');
+      option.value = deal.name;
+      option.textContent = `${deal.name} - ${deal.company}`;
+      select.appendChild(option);
+    });
+  } catch (err) {
+    console.error('Error loading deals:', err);
+    throw err;
+  }
 }
 
 async function loadProducts() {
-  const response = await gapi.client.sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEETS.PRODUCTS}!A2:E`,
-  });
-  
-  const rows = response.result.values || [];
-  productsData = rows
-    .filter(row => row[4] === 'TRUE' || row[4] === true)
-    .map(row => ({
-      id: row[0] || '',
-      name: row[1] || '',
-      unit: row[2] || 'L',
-      price: row[3] || '0'
-    }));
-  
-  // Populate product dropdown
-  const select = document.getElementById('productSelect');
-  select.innerHTML = '<option value="">Select a product...</option>';
-  productsData.forEach(product => {
-    const option = document.createElement('option');
-    option.value = product.name;
-    option.textContent = `${product.name} (₹${product.price}/${product.unit})`;
-    select.appendChild(option);
-  });
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.PRODUCTS}!A2:E`,
+    });
+    
+    const rows = response.result.values || [];
+    productsData = rows
+      .filter(row => row[4] === 'TRUE' || row[4] === true || row[4] === 'Yes')
+      .map(row => ({
+        id: row[0] || '',
+        name: row[1] || '',
+        unit: row[2] || 'L',
+        price: row[3] || '0'
+      }));
+    
+    console.log('Loaded products:', productsData.length);
+    
+    // Populate product dropdown
+    const select = document.getElementById('productSelect');
+    select.innerHTML = '<option value="">Select a product...</option>';
+    productsData.forEach(product => {
+      const option = document.createElement('option');
+      option.value = product.name;
+      option.textContent = `${product.name} (₹${product.price}/${product.unit})`;
+      select.appendChild(option);
+    });
+  } catch (err) {
+    console.error('Error loading products:', err);
+    throw err;
+  }
 }
 
 async function loadOrders() {
-  const response = await gapi.client.sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEETS.ORDERS}!A2:M`,
-  });
-  
-  const rows = response.result.values || [];
-  ordersData = rows.map((row, idx) => ({
-    rowIndex: idx + 2, // +2 because row 1 is header, array is 0-indexed
-    id: row[0] || `ORD-${Date.now()}-${idx}`,
-    dealName: row[1] || '',
-    product: row[2] || '',
-    volume: row[3] || '',
-    discountCode: row[4] || '',
-    address: row[5] || '',
-    gst: row[6] || '',
-    lrNumber: row[7] || '',
-    status: row[8] || 'placed',
-    createdBy: row[9] || '',
-    createdAt: row[10] || '',
-    custom1: row[11] || '',
-    custom2: row[12] || ''
-  }));
+  try {
+    const response = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.ORDERS}!A2:M`,
+    });
+    
+    const rows = response.result.values || [];
+    ordersData = rows.map((row, idx) => ({
+      rowIndex: idx + 2, // +2 because row 1 is header, array is 0-indexed
+      id: row[0] || `ORD-${Date.now()}-${idx}`,
+      dealName: row[1] || '',
+      product: row[2] || '',
+      volume: row[3] || '',
+      discountCode: row[4] || '',
+      address: row[5] || '',
+      gst: row[6] || '',
+      lrNumber: row[7] || '',
+      status: row[8] || 'placed',
+      createdBy: row[9] || '',
+      createdAt: row[10] || '',
+      custom1: row[11] || '',
+      custom2: row[12] || ''
+    }));
+    
+    console.log('Loaded orders:', ordersData.length);
+  } catch (err) {
+    console.error('Error loading orders:', err);
+    throw err;
+  }
 }
 
 // ===============================================
@@ -284,6 +324,7 @@ async function createOrder() {
     renderKanban();
     showToast('Order created successfully!');
   } catch (err) {
+    console.error('Error creating order:', err);
     showToast('Error creating order: ' + err.message, true);
   }
 }
@@ -411,6 +452,7 @@ async function updateOrderStatus(orderId, rowIndex, newStatus) {
     renderKanban();
     showToast(`Order moved to ${newStatus.replace('_', ' ')}`);
   } catch (err) {
+    console.error('Error updating order:', err);
     showToast('Error updating order: ' + err.message, true);
   }
 }
@@ -429,13 +471,21 @@ async function deleteOrder(orderId, rowIndex) {
   }
   
   try {
+    // Get the sheet ID for Orders tab (usually 0 for first tab, adjust if needed)
+    const sheetResponse = await gapi.client.sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID
+    });
+    
+    const ordersSheet = sheetResponse.result.sheets.find(s => s.properties.title === SHEETS.ORDERS);
+    const sheetId = ordersSheet ? ordersSheet.properties.sheetId : 0;
+    
     await gapi.client.sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       resource: {
         requests: [{
           deleteDimension: {
             range: {
-              sheetId: 0, // Orders sheet (change if needed)
+              sheetId: sheetId,
               dimension: 'ROWS',
               startIndex: rowIndex - 1,
               endIndex: rowIndex
@@ -449,6 +499,7 @@ async function deleteOrder(orderId, rowIndex) {
     renderKanban();
     showToast('Order deleted successfully');
   } catch (err) {
+    console.error('Error deleting order:', err);
     showToast('Error deleting order: ' + err.message, true);
   }
 }
