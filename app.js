@@ -533,7 +533,7 @@ function createCard(order) {
 }
 
 // ===============================================
-// ORDER DETAIL MODAL
+// ORDER DETAIL MODAL (CORRECTED)
 // ===============================================
 function openOrderModal(order) {
   const modal = document.getElementById('orderModal');
@@ -609,16 +609,16 @@ function openOrderModal(order) {
       <h3>Shipping Information</h3>
       <div class="detail-grid">
         <div class="detail-row">
-          <span class="detail-label">LR Number (Editable)</span>
+          <span class="detail-label">LR Number</span>
           <div class="editable-field">
             <input type="text" id="lrNumberEdit" value="${order.lrNumber || ''}" placeholder="Enter LR Number" />
-            <button class="btn-save" onclick="saveLRNumber('${order.id}')">💾 Save LR Number</button>
+            <button class="btn-save" onclick="event.stopPropagation(); saveLRNumber('${order.id}')">💾 Save LR Number</button>
           </div>
         </div>
       </div>
     </div>
 
-    ${order.custom1 || order.custom2 ? `<div class="modal-section">
+    ${(order.custom1 || order.custom2) ? `<div class="modal-section">
       <h3>Custom Fields</h3>
       <div class="detail-grid">
         ${order.custom1 ? `<div class="detail-row">
@@ -636,13 +636,34 @@ function openOrderModal(order) {
   modal.classList.add('show');
 }
 
+function closeModal() {
+  const modal = document.getElementById('orderModal');
+  modal.classList.remove('show');
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+  const modal = document.getElementById('orderModal');
+  if (event.target === modal) {
+    closeModal();
+  }
+}
+
 // ===============================================
-// SAVE LR NUMBER
+// SAVE LR NUMBER (CORRECTED)
 // ===============================================
 async function saveLRNumber(orderId) {
-  const lrNumber = document.getElementById('lrNumberEdit').value;
+  const lrInput = document.getElementById('lrNumberEdit');
+  if (!lrInput) {
+    showToast('Error: LR input field not found', true);
+    return;
+  }
+  
+  const lrNumber = lrInput.value.trim();
   
   try {
+    showToast('Saving LR Number...');
+    
     // Find all rows with this order ID and update LR number
     const response = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -655,7 +676,7 @@ async function saveLRNumber(orderId) {
     rows.forEach((row, idx) => {
       if (row[0] === orderId) {
         updates.push({
-          range: `${SHEETS.ORDERS}!H${idx + 2}`, // H column is LR Number
+          range: `${SHEETS.ORDERS}!H${idx + 2}`, // H column is LR Number (column 8)
           values: [[lrNumber]]
         });
       }
@@ -671,15 +692,19 @@ async function saveLRNumber(orderId) {
       });
       
       showToast('LR Number saved successfully!');
+      
+      // Reload data
       await loadOrders();
       renderKanban();
       
-      // Update the modal with new data
+      // Close and reopen modal with updated data
       const updatedOrder = ordersData.find(o => o.id === orderId);
       if (updatedOrder) {
         closeModal();
         setTimeout(() => openOrderModal(updatedOrder), 300);
       }
+    } else {
+      showToast('No orders found with this ID', true);
     }
   } catch (err) {
     console.error('Error saving LR number:', err);
