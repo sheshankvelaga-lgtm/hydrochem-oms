@@ -4,8 +4,8 @@
 const CLIENT_ID = '611448944135-g8ajh2ap7u6phcl1dr5q8ag4e3kc9n9r.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAO_A0iOhJbDgl3y7AXCFVNWSdddaDelqQ';
 
-// Apps Script API URL - UPDATED WITH NEW DEPLOYMENT
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKW-Ju826N2PuAjnkA98igzg5erL3e4ehDefcWfcxE4g1hmvoJ2AXX2tTtlI5sXOabjA/exec';
+// ✅ UPDATED WEB APP URL
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwu_1bPiNu0LvPbIOnNGU4yWymRn6MyHFZnvyZAbTh477GnDpncj810YPI8QD9q-epKhQ/exec';
 
 const ADMIN_USERS = [
   'sheshank.velaga@hydrochemindustries.com',
@@ -28,7 +28,7 @@ let dealsData = [];
 let productsData = [];
 let ordersData = [];
 let productRowCount = 1;
-let currentOrderId = null; // For modal operations
+let currentOrderId = null;
 
 // ===============================================
 // INITIALIZATION
@@ -370,11 +370,13 @@ async function createOrder() {
   }
 
   const orderId = `ORD-${Date.now()}`;
+  const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
   try {
     showToast('Creating order...');
     
-    await callAppsScriptWithResponse('createOrder', {
+    // Create order in background
+    const createPromise = callAppsScriptWithResponse('createOrder', {
       orderId,
       dealName,
       products,
@@ -386,7 +388,7 @@ async function createOrder() {
       custom2
     });
 
-    // Clear form
+    // Clear form immediately (optimistic)
     document.getElementById('dealSelect').value = '';
     document.getElementById('discountInput').value = '';
     document.getElementById('addressInput').value = '';
@@ -414,8 +416,39 @@ async function createOrder() {
     productRowCount = 1;
     updateProductDropdowns();
 
-    await loadOrders();
-    renderKanban();
+    // Wait for creation to complete
+    await createPromise;
+    
+    // Add optimistically to UI
+    const newOrder = {
+      rowIndex: 0,
+      id: orderId,
+      dealName: dealName,
+      products: products,
+      discountCode: discountCode,
+      address: address,
+      gst: gst,
+      lrNumber: lrNumber,
+      status: 'placed',
+      createdBy: currentUser,
+      createdAt: timestamp,
+      custom1: custom1,
+      custom2: custom2,
+      notes: '',
+      attachments: ''
+    };
+    
+    ordersData.push(newOrder);
+    
+    // Just render the new card, don't reload everything
+    const placedLane = document.getElementById('lane-placed');
+    const card = createCard(newOrder);
+    placedLane.appendChild(card);
+    
+    // Update count
+    const count = document.getElementById('count-placed');
+    count.textContent = parseInt(count.textContent) + 1;
+    
     showToast(`Order created! Email sent.`);
   } catch (err) {
     console.error('Error creating order:', err);
@@ -759,7 +792,7 @@ async function uploadFile(file) {
 }
 
 // ===============================================
-// SAVE LR NUMBER (OPTIMIZED)
+// SAVE LR NUMBER (OPTIMIZED - NO RELOAD)
 // ===============================================
 async function saveLRNumber(orderId) {
   const lrInput = document.getElementById('lrNumberEdit');
@@ -775,15 +808,22 @@ async function saveLRNumber(orderId) {
       lrNumber
     });
     
-    await loadOrders();
-    renderKanban();
-    
-    const updatedOrder = ordersData.find(o => o.id === orderId);
-    if (updatedOrder) {
-      closeModal();
-      setTimeout(() => openOrderModal(updatedOrder), 200);
+    // Update local cache (no reload needed)
+    const order = ordersData.find(o => o.id === orderId);
+    if (order) {
+      order.lrNumber = lrNumber;
     }
+    
     showToast('LR Number saved!');
+    
+    // Just update the modal, don't reload everything
+    setTimeout(() => {
+      const updatedOrder = ordersData.find(o => o.id === orderId);
+      if (updatedOrder) {
+        closeModal();
+        setTimeout(() => openOrderModal(updatedOrder), 200);
+      }
+    }, 500);
   } catch (err) {
     console.error('Error saving LR number:', err);
     showToast('Error: ' + err.message, true);
@@ -791,7 +831,7 @@ async function saveLRNumber(orderId) {
 }
 
 // ===============================================
-// DRAG AND DROP
+// DRAG AND DROP (OPTIMIZED - INSTANT UI)
 // ===============================================
 function setupDragAndDrop(card) {
   card.addEventListener('dragstart', (e) => {
@@ -825,27 +865,45 @@ function setupDropZone(lane) {
     
     const orderId = draggingCard.dataset.orderId;
     const newStatus = lane.dataset.status;
+    const oldStatus = draggingCard.closest('.lane').dataset.status;
     
-    await updateOrderStatus(orderId, newStatus);
+    // OPTIMISTIC UPDATE: Update UI immediately
+    lane.appendChild(draggingCard);
+    updateCountsOptimistic(oldStatus, newStatus);
+    showToast('Updating...');
+    
+    // Update in background
+    try {
+      await callAppsScriptWithResponse('updateOrderStatus', {
+        orderId,
+        newStatus
+      });
+      
+      // Update local cache
+      const order = ordersData.find(o => o.id === orderId);
+      if (order) {
+        order.status = newStatus;
+      }
+      
+      showToast(`Moved to ${newStatus.replace('_', ' ')}. Email sent if shipped.`);
+    } catch (err) {
+      console.error('Error updating order:', err);
+      showToast('Error: ' + err.message, true);
+      // Revert UI on error
+      await loadOrders();
+      renderKanban();
+    }
   });
 }
 
-async function updateOrderStatus(orderId, newStatus) {
-  try {
-    showToast('Updating...');
-    
-    await callAppsScriptWithResponse('updateOrderStatus', {
-      orderId,
-      newStatus
-    });
-    
-    await loadOrders();
-    renderKanban();
-    showToast(`Moved to ${newStatus.replace('_', ' ')}. Email sent if shipped.`);
-  } catch (err) {
-    console.error('Error updating order:', err);
-    showToast('Error: ' + err.message, true);
-  }
+function updateCountsOptimistic(fromStatus, toStatus) {
+  // Decrease count in old lane
+  const fromCount = document.getElementById(`count-${fromStatus}`);
+  fromCount.textContent = parseInt(fromCount.textContent) - 1;
+  
+  // Increase count in new lane
+  const toCount = document.getElementById(`count-${toStatus}`);
+  toCount.textContent = parseInt(toCount.textContent) + 1;
 }
 
 // ===============================================
@@ -864,16 +922,36 @@ async function deleteOrder(orderId) {
   try {
     showToast('Deleting...');
     
+    // Find the card and remove it immediately (optimistic)
+    const card = document.querySelector(`[data-order-id="${orderId}"]`);
+    const lane = card ? card.closest('.lane') : null;
+    const status = lane ? lane.dataset.status : null;
+    
+    if (card) {
+      card.remove();
+      
+      // Update count
+      if (status) {
+        const count = document.getElementById(`count-${status}`);
+        count.textContent = parseInt(count.textContent) - 1;
+      }
+    }
+    
+    // Delete in background
     await callAppsScriptWithResponse('deleteOrder', {
       orderId
     });
     
-    await loadOrders();
-    renderKanban();
+    // Update local cache
+    ordersData = ordersData.filter(o => o.id !== orderId);
+    
     showToast('Order deleted');
   } catch (err) {
     console.error('Error deleting order:', err);
     showToast('Error: ' + err.message, true);
+    // Reload on error
+    await loadOrders();
+    renderKanban();
   }
 }
 
