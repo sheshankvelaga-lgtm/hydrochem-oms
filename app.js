@@ -4,10 +4,9 @@
 const CLIENT_ID = '611448944135-g8ajh2ap7u6phcl1dr5q8ag4e3kc9n9r.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAO_A0iOhJbDgl3y7AXCFVNWSdddaDelqQ';
 
-// Apps Script API URL
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzF7Jc5j4WlO0Y5jVzKqJ6-FbcQhLsBL91VXnhgw6V5adVzEs6UA1B8au0KM4gAO9WmaA/exec';
+// Apps Script API URL - UPDATED WITH NEW DEPLOYMENT
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKW-Ju826N2PuAjnkA98igzg5erL3e4ehDefcWfcxE4g1hmvoJ2AXX2tTtlI5sXOabjA/exec';
 
-// Admin users who can delete orders
 const ADMIN_USERS = [
   'sheshank.velaga@hydrochemindustries.com',
   'admin@hydrochemindustries.com'
@@ -29,6 +28,7 @@ let dealsData = [];
 let productsData = [];
 let ordersData = [];
 let productRowCount = 1;
+let currentOrderId = null; // For modal operations
 
 // ===============================================
 // INITIALIZATION
@@ -66,7 +66,6 @@ function gisLoaded() {
 }
 
 function maybeEnableButtons() {
-  console.log('gapiInited:', gapiInited, 'gisInited:', gisInited);
   if (gapiInited && gisInited) {
     document.getElementById('authButton').style.display = 'inline-block';
     console.log('Sign In button enabled');
@@ -85,10 +84,7 @@ function handleAuthClick() {
     }
     
     try {
-      console.log('Auth response received, getting user info...');
-      
       const token = gapi.client.getToken();
-      console.log('Access token available:', !!token);
       
       if (!token || !token.access_token) {
         throw new Error('No access token received');
@@ -116,9 +112,10 @@ function handleAuthClick() {
       document.getElementById('signoutButton').style.display = 'inline-block';
       document.getElementById('orderForm').style.display = 'block';
       document.getElementById('refreshButton').style.display = 'inline-block';
+      document.getElementById('searchBar').style.display = 'block';
       
       await loadAllData();
-      showToast('Signed in successfully as ' + currentUser);
+      showToast('Signed in successfully!');
     } catch (error) {
       console.error('Error during sign in:', error);
       showToast('Error: ' + error.message, true);
@@ -145,6 +142,7 @@ function handleSignoutClick() {
     document.getElementById('signoutButton').style.display = 'none';
     document.getElementById('orderForm').style.display = 'none';
     document.getElementById('refreshButton').style.display = 'none';
+    document.getElementById('searchBar').style.display = 'none';
     
     clearKanban();
     showToast('Signed out successfully');
@@ -152,34 +150,8 @@ function handleSignoutClick() {
 }
 
 // ===============================================
-// API CALLS TO APPS SCRIPT
+// API CALLS TO APPS SCRIPT (OPTIMIZED)
 // ===============================================
-async function callAppsScript(action, params = {}) {
-  const payload = {
-    action: action,
-    userEmail: currentUser,
-    ...params
-  };
-  
-  try {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors', // Important for Apps Script
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    // Note: With no-cors mode, we can't read the response
-    // So we'll use a different approach - redirect mode
-    return true;
-  } catch (error) {
-    console.error('Apps Script API error:', error);
-    throw error;
-  }
-}
-
 async function callAppsScriptWithResponse(action, params = {}) {
   const payload = {
     action: action,
@@ -205,16 +177,18 @@ async function callAppsScriptWithResponse(action, params = {}) {
 }
 
 // ===============================================
-// DATA LOADING
+// DATA LOADING (OPTIMIZED - NO DELAYS)
 // ===============================================
 async function loadAllData() {
   try {
-    console.log('Loading data from Apps Script API...');
-    await loadDeals();
-    await loadProducts();
-    await loadOrders();
+    console.log('Loading data...');
+    await Promise.all([
+      loadDeals(),
+      loadProducts(),
+      loadOrders()
+    ]);
     renderKanban();
-    console.log('All data loaded successfully');
+    console.log('All data loaded');
   } catch (err) {
     showToast('Error loading data: ' + err.message, true);
     console.error('Error loading data:', err);
@@ -223,11 +197,11 @@ async function loadAllData() {
 
 async function refreshData() {
   try {
-    showToast('Refreshing data...');
+    showToast('Refreshing...');
     await loadAllData();
-    showToast('Data refreshed successfully!');
+    showToast('Refreshed!');
   } catch (err) {
-    showToast('Error refreshing data: ' + err.message, true);
+    showToast('Error refreshing: ' + err.message, true);
   }
 }
 
@@ -235,7 +209,6 @@ async function loadDeals() {
   try {
     const result = await callAppsScriptWithResponse('getDeals');
     dealsData = result.deals || [];
-    
     console.log('Loaded deals:', dealsData.length);
     
     const select = document.getElementById('dealSelect');
@@ -256,7 +229,6 @@ async function loadProducts() {
   try {
     const result = await callAppsScriptWithResponse('getProducts');
     productsData = result.products || [];
-    
     console.log('Loaded products:', productsData.length);
     updateProductDropdowns();
   } catch (err) {
@@ -287,6 +259,37 @@ async function loadOrders() {
     console.error('Error loading orders:', err);
     throw err;
   }
+}
+
+// ===============================================
+// SEARCH FUNCTIONALITY
+// ===============================================
+async function performSearch() {
+  const query = document.getElementById('searchInput').value;
+  const status = document.getElementById('statusFilter').value;
+  
+  try {
+    showToast('Searching...');
+    const result = await callAppsScriptWithResponse('searchOrders', {
+      query,
+      status
+    });
+    
+    ordersData = result.orders || [];
+    renderKanban();
+    showToast(`Found ${ordersData.length} orders`);
+  } catch (err) {
+    showToast('Search error: ' + err.message, true);
+  }
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('statusFilter').value = 'all';
+  loadOrders().then(() => {
+    renderKanban();
+    showToast('Search cleared');
+  });
 }
 
 // ===============================================
@@ -328,14 +331,14 @@ function removeProduct(index) {
 
 function updateRemoveButtons() {
   const items = document.querySelectorAll('.product-item');
-  items.forEach((item, idx) => {
+  items.forEach((item) => {
     const btn = item.querySelector('.btn-remove');
     btn.style.display = items.length > 1 ? 'block' : 'none';
   });
 }
 
 // ===============================================
-// ORDER CREATION
+// ORDER CREATION (OPTIMIZED)
 // ===============================================
 async function createOrder() {
   const dealName = document.getElementById('dealSelect').value;
@@ -362,7 +365,7 @@ async function createOrder() {
   }
 
   if (!dealName || products.length === 0 || !address || !gst) {
-    showToast('Please fill all required fields and add at least one product', true);
+    showToast('Please fill all required fields', true);
     return;
   }
 
@@ -411,12 +414,9 @@ async function createOrder() {
     productRowCount = 1;
     updateProductDropdowns();
 
-    // Wait a moment then reload
-    setTimeout(async () => {
-      await loadOrders();
-      renderKanban();
-      showToast(`Order created successfully with ${products.length} product(s)!`);
-    }, 1000);
+    await loadOrders();
+    renderKanban();
+    showToast(`Order created! Email sent.`);
   } catch (err) {
     console.error('Error creating order:', err);
     showToast('Error creating order: ' + err.message, true);
@@ -496,9 +496,10 @@ function createCard(order) {
 }
 
 // ===============================================
-// ORDER DETAIL MODAL
+// ORDER DETAIL MODAL (WITH NOTES & ATTACHMENTS)
 // ===============================================
-function openOrderModal(order) {
+async function openOrderModal(order) {
+  currentOrderId = order.id;
   const modal = document.getElementById('orderModal');
   const modalBody = document.getElementById('modalBody');
   
@@ -575,7 +576,7 @@ function openOrderModal(order) {
           <span class="detail-label">LR Number</span>
           <div class="editable-field">
             <input type="text" id="lrNumberEdit" value="${order.lrNumber || ''}" placeholder="Enter LR Number" />
-            <button class="btn-save" onclick="event.stopPropagation(); saveLRNumber('${order.id}')">💾 Save LR Number</button>
+            <button class="btn-save" onclick="event.stopPropagation(); saveLRNumber('${order.id}')">💾 Save</button>
           </div>
         </div>
       </div>
@@ -597,11 +598,16 @@ function openOrderModal(order) {
   `;
   
   modal.classList.add('show');
+  
+  // Load notes and attachments
+  await loadNotes(order.id);
+  await loadAttachments(order.id);
 }
 
 function closeModal() {
   const modal = document.getElementById('orderModal');
   modal.classList.remove('show');
+  currentOrderId = null;
 }
 
 window.onclick = function(event) {
@@ -612,7 +618,148 @@ window.onclick = function(event) {
 }
 
 // ===============================================
-// SAVE LR NUMBER
+// NOTES FUNCTIONALITY
+// ===============================================
+async function loadNotes(orderId) {
+  try {
+    const result = await callAppsScriptWithResponse('getNotes', { orderId });
+    const notes = result.notes || [];
+    
+    const notesList = document.getElementById('notesList');
+    
+    if (notes.length === 0) {
+      notesList.innerHTML = '<div class="no-notes">No notes yet</div>';
+    } else {
+      notesList.innerHTML = notes.map(note => `
+        <div class="note-item">
+          <div class="note-text">${note.text}</div>
+          <div class="note-meta">By ${note.by} on ${note.at}</div>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    console.error('Error loading notes:', err);
+  }
+}
+
+async function addNote() {
+  const noteInput = document.getElementById('noteInput');
+  const noteText = noteInput.value.trim();
+  
+  if (!noteText) {
+    showToast('Please enter a note', true);
+    return;
+  }
+  
+  try {
+    showToast('Adding note...');
+    await callAppsScriptWithResponse('addNote', {
+      orderId: currentOrderId,
+      noteText
+    });
+    
+    noteInput.value = '';
+    await loadNotes(currentOrderId);
+    showToast('Note added!');
+  } catch (err) {
+    showToast('Error adding note: ' + err.message, true);
+  }
+}
+
+// ===============================================
+// FILE ATTACHMENTS
+// ===============================================
+async function loadAttachments(orderId) {
+  try {
+    const result = await callAppsScriptWithResponse('getAttachments', { orderId });
+    const attachments = result.attachments || [];
+    
+    const attachmentsList = document.getElementById('attachmentsList');
+    
+    if (attachments.length === 0) {
+      attachmentsList.innerHTML = '<div class="no-attachments">No attachments yet</div>';
+    } else {
+      attachmentsList.innerHTML = attachments.map(att => `
+        <div class="attachment-item">
+          <div class="attachment-info">
+            <span class="attachment-icon">📎</span>
+            <div class="attachment-details">
+              <div class="attachment-name">${att.fileName}</div>
+              <div class="attachment-size">${formatBytes(att.size)}</div>
+            </div>
+          </div>
+          <a href="${att.fileUrl}" target="_blank" class="btn-download">Download</a>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    console.error('Error loading attachments:', err);
+  }
+}
+
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+async function handleFileSelect(event) {
+  const files = event.target.files;
+  
+  if (files.length === 0) return;
+  
+  const uploadStatus = document.getElementById('uploadStatus');
+  uploadStatus.textContent = `Uploading ${files.length} file(s)...`;
+  
+  try {
+    for (let file of files) {
+      await uploadFile(file);
+    }
+    
+    uploadStatus.textContent = 'Upload complete!';
+    await loadAttachments(currentOrderId);
+    showToast('Files uploaded successfully!');
+    
+    setTimeout(() => {
+      uploadStatus.textContent = '';
+      document.getElementById('fileInput').value = '';
+    }, 2000);
+  } catch (err) {
+    uploadStatus.textContent = 'Upload failed';
+    showToast('Upload error: ' + err.message, true);
+  }
+}
+
+async function uploadFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = async function(e) {
+      try {
+        const base64Data = e.target.result.split(',')[1];
+        
+        await callAppsScriptWithResponse('uploadFile', {
+          orderId: currentOrderId,
+          fileName: file.name,
+          fileData: base64Data,
+          mimeType: file.type
+        });
+        
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
+    };
+    
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ===============================================
+// SAVE LR NUMBER (OPTIMIZED)
 // ===============================================
 async function saveLRNumber(orderId) {
   const lrInput = document.getElementById('lrNumberEdit');
@@ -621,27 +768,25 @@ async function saveLRNumber(orderId) {
   const lrNumber = lrInput.value.trim();
   
   try {
-    showToast('Saving LR Number...');
+    showToast('Saving...');
     
     await callAppsScriptWithResponse('updateLRNumber', {
       orderId,
       lrNumber
     });
     
-    setTimeout(async () => {
-      await loadOrders();
-      renderKanban();
-      
-      const updatedOrder = ordersData.find(o => o.id === orderId);
-      if (updatedOrder) {
-        closeModal();
-        setTimeout(() => openOrderModal(updatedOrder), 300);
-      }
-      showToast('LR Number saved successfully!');
-    }, 1000);
+    await loadOrders();
+    renderKanban();
+    
+    const updatedOrder = ordersData.find(o => o.id === orderId);
+    if (updatedOrder) {
+      closeModal();
+      setTimeout(() => openOrderModal(updatedOrder), 200);
+    }
+    showToast('LR Number saved!');
   } catch (err) {
     console.error('Error saving LR number:', err);
-    showToast('Error saving LR number: ' + err.message, true);
+    showToast('Error: ' + err.message, true);
   }
 }
 
@@ -687,26 +832,24 @@ function setupDropZone(lane) {
 
 async function updateOrderStatus(orderId, newStatus) {
   try {
-    showToast('Updating status...');
+    showToast('Updating...');
     
     await callAppsScriptWithResponse('updateOrderStatus', {
       orderId,
       newStatus
     });
     
-    setTimeout(async () => {
-      await loadOrders();
-      renderKanban();
-      showToast(`Order moved to ${newStatus.replace('_', ' ')}`);
-    }, 1000);
+    await loadOrders();
+    renderKanban();
+    showToast(`Moved to ${newStatus.replace('_', ' ')}. Email sent if shipped.`);
   } catch (err) {
     console.error('Error updating order:', err);
-    showToast('Error updating order: ' + err.message, true);
+    showToast('Error: ' + err.message, true);
   }
 }
 
 // ===============================================
-// DELETE ORDER
+// DELETE ORDER (OPTIMIZED)
 // ===============================================
 async function deleteOrder(orderId) {
   if (!isAdmin) {
@@ -714,25 +857,23 @@ async function deleteOrder(orderId) {
     return;
   }
   
-  if (!confirm(`Delete order ${orderId}? This will delete all product lines. This cannot be undone.`)) {
+  if (!confirm(`Delete order ${orderId}? This cannot be undone.`)) {
     return;
   }
   
   try {
-    showToast('Deleting order...');
+    showToast('Deleting...');
     
     await callAppsScriptWithResponse('deleteOrder', {
       orderId
     });
     
-    setTimeout(async () => {
-      await loadOrders();
-      renderKanban();
-      showToast('Order deleted successfully');
-    }, 1000);
+    await loadOrders();
+    renderKanban();
+    showToast('Order deleted');
   } catch (err) {
     console.error('Error deleting order:', err);
-    showToast('Error deleting order: ' + err.message, true);
+    showToast('Error: ' + err.message, true);
   }
 }
 
