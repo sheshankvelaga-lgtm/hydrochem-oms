@@ -107,6 +107,66 @@ button:hover {
   color: white;
 }
 
+/* ===============================================
+   SEARCH BAR
+   =============================================== */
+
+.search-bar {
+  max-width: 1600px;
+  margin: 16px auto 0;
+  padding: 0 24px;
+}
+
+.search-container {
+  display: grid;
+  grid-template-columns: 2fr auto auto auto auto;
+  gap: 12px;
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  align-items: center;
+}
+
+#searchInput {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+}
+
+#statusFilter,
+#ownerFilter {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.btn-search {
+  padding: 10px 24px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn-clear {
+  padding: 10px 20px;
+  background: var(--muted);
+  color: white;
+  border: none;
+  white-space: nowrap;
+}
+
+/* ===============================================
+   ORDER FORM
+   =============================================== */
+
 .order-form {
   max-width: 1400px;
   margin: 24px auto;
@@ -224,6 +284,10 @@ textarea {
 .btn-add-product:hover {
   background: #059669;
 }
+
+/* ===============================================
+   KANBAN BOARD
+   =============================================== */
 
 .kanban-board {
   max-width: 1600px;
@@ -375,7 +439,10 @@ textarea {
   color: var(--muted);
 }
 
-/* Modal Styles */
+/* ===============================================
+   MODAL
+   =============================================== */
+
 .modal {
   display: none;
   position: fixed;
@@ -454,7 +521,7 @@ textarea {
 
 .modal-body {
   padding: 24px;
-  max-height: calc(85vh - 80px);
+  max-height: calc(85vh - 200px);
   overflow-y: auto;
 }
 
@@ -540,6 +607,177 @@ textarea {
   background: var(--primary-hover);
 }
 
+/* ===============================================
+   NOTES & ATTACHMENTS
+   =============================================== */
+
+.modal-notes,
+.modal-attachments {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.modal-notes h3,
+.modal-attachments h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.notes-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.note-item {
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid var(--primary);
+  margin-bottom: 10px;
+}
+
+.note-text {
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+}
+
+.note-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.note-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-input-area textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.btn-add-note {
+  align-self: flex-start;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-add-note:hover {
+  background: var(--primary-hover);
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f9fafb;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.attachment-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.attachment-icon {
+  font-size: 20px;
+}
+
+.attachment-details {
+  flex: 1;
+}
+
+.attachment-name {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.attachment-size {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.btn-download {
+  padding: 6px 12px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-download:hover {
+  background: var(--primary-hover);
+}
+
+.attachment-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-upload {
+  padding: 8px 16px;
+  background: var(--success);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-upload:hover {
+  background: #059669;
+}
+
+.upload-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.no-notes,
+.no-attachments {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ===============================================
+   TOAST
+   =============================================== */
+
 .toast {
   position: fixed;
   bottom: 24px;
@@ -567,9 +805,24 @@ textarea {
   background: var(--danger);
 }
 
+/* ===============================================
+   RESPONSIVE
+   =============================================== */
+
 @media (max-width: 1400px) {
   .kanban-board {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .search-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .btn-search,
+  .btn-clear {
+    width: 100%;
   }
 }
 
