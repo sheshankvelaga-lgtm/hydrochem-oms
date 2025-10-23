@@ -542,9 +542,8 @@ function createCard(order) {
   setupDragAndDrop(card);
   return card;
 }
-
 // ===============================================
-// ORDER DETAIL MODAL
+// ORDER DETAIL MODAL (FIXED - WITH NOTES & ATTACHMENTS HTML)
 // ===============================================
 async function openOrderModal(order) {
   currentOrderId = order.id;
@@ -645,23 +644,23 @@ async function openOrderModal(order) {
     </div>` : ''}
   `;
   
+  // Add Notes Section HTML (after modalBody content)
+  const notesSection = document.getElementById('notesSection');
+  if (notesSection) {
+    notesSection.style.display = 'block';
+  }
+  
+  // Add Attachments Section HTML (after notes)
+  const attachmentsSection = document.getElementById('attachmentsSection');
+  if (attachmentsSection) {
+    attachmentsSection.style.display = 'block';
+  }
+  
   modal.classList.add('show');
   
+  // Load notes and attachments
   await loadNotes(order.id);
   await loadAttachments(order.id);
-}
-
-function closeModal() {
-  const modal = document.getElementById('orderModal');
-  modal.classList.remove('show');
-  currentOrderId = null;
-}
-
-window.onclick = function(event) {
-  const modal = document.getElementById('orderModal');
-  if (event.target === modal) {
-    closeModal();
-  }
 }
 
 // ===============================================
