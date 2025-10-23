@@ -440,7 +440,7 @@ textarea {
 }
 
 /* ===============================================
-   MODAL - FIXED SCROLLING
+   MODAL - SINGLE SCROLL AREA
    =============================================== */
 
 .modal {
@@ -467,11 +467,9 @@ textarea {
   max-width: 700px;
   width: 90%;
   max-height: 90vh;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   animation: modalSlideIn 0.2s ease;
-  overflow: hidden;
 }
 
 @keyframes modalSlideIn {
@@ -492,7 +490,9 @@ textarea {
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
   background: #f9fafb;
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .modal-header h2 {
@@ -523,8 +523,6 @@ textarea {
 
 .modal-body {
   padding: 24px;
-  overflow-y: auto;
-  flex: 1 1 auto;
 }
 
 .modal-section {
@@ -610,14 +608,13 @@ textarea {
 }
 
 /* ===============================================
-   NOTES & ATTACHMENTS - FIXED
+   NOTES & ATTACHMENTS
    =============================================== */
 
 .modal-notes,
 .modal-attachments {
   padding: 20px 24px;
   border-top: 1px solid var(--border);
-  flex-shrink: 0;
   background: white;
 }
 
@@ -630,7 +627,7 @@ textarea {
 }
 
 .notes-list {
-  max-height: 150px;
+  max-height: 200px;
   overflow-y: auto;
   margin-bottom: 16px;
 }
@@ -691,7 +688,7 @@ textarea {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 16px;
-  max-height: 150px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
