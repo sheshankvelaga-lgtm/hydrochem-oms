@@ -159,15 +159,16 @@
         <h2>Order Details</h2>
         <button class="close-btn" onclick="closeModal()">&times;</button>
       </div>
+      
       <div class="modal-body" id="modalBody">
-        <!-- Populated by JavaScript -->
+        <!-- Order details populated by JavaScript -->
       </div>
       
-      <!-- Order Notes Section -->
+      <!-- Order Notes Section - EDITABLE -->
       <div class="modal-notes" id="notesSection">
         <h3>📝 Order Notes</h3>
         <div id="notesList" class="notes-list">
-          <!-- Notes will be loaded here -->
+          <div class="no-notes">No notes yet</div>
         </div>
         <div class="note-input-area">
           <textarea id="noteInput" placeholder="Add a note..." rows="3"></textarea>
@@ -179,7 +180,7 @@
       <div class="modal-attachments" id="attachmentsSection">
         <h3>📎 Attachments</h3>
         <div id="attachmentsList" class="attachments-list">
-          <!-- Attachments will be loaded here -->
+          <div class="no-attachments">No attachments yet</div>
         </div>
         <div class="attachment-upload">
           <input type="file" id="fileInput" multiple style="display:none;" onchange="handleFileSelect(event)" />
