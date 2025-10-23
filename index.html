@@ -19,6 +19,30 @@
     </div>
   </header>
 
+  <!-- Search Bar with Owner Filter -->
+  <section id="searchBar" class="search-bar" style="display:none;">
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="🔍 Search by Order ID, Deal, Customer, GST, LR..." />
+      
+      <select id="statusFilter">
+        <option value="all">All Statuses</option>
+        <option value="placed">📝 Order Placed</option>
+        <option value="in_progress">⚙️ In Progress</option>
+        <option value="shipped">🚚 Shipped</option>
+        <option value="delivered">✅ Delivered</option>
+        <option value="cancelled">❌ Cancelled</option>
+      </select>
+
+      <select id="ownerFilter">
+        <option value="all">All Owners</option>
+        <!-- Will be populated dynamically -->
+      </select>
+      
+      <button class="btn-search" onclick="performSearch()">Search</button>
+      <button class="btn-clear" onclick="clearSearch()">Clear</button>
+    </div>
+  </section>
+
   <section id="orderForm" class="order-form" style="display:none;">
     <h2>Create New Order</h2>
     
@@ -136,7 +160,32 @@
         <button class="close-btn" onclick="closeModal()">&times;</button>
       </div>
       <div class="modal-body" id="modalBody">
-        <!-- Details will be populated by JavaScript -->
+        <!-- Populated by JavaScript -->
+      </div>
+      
+      <!-- Order Notes Section -->
+      <div class="modal-notes" id="notesSection">
+        <h3>📝 Order Notes</h3>
+        <div id="notesList" class="notes-list">
+          <!-- Notes will be loaded here -->
+        </div>
+        <div class="note-input-area">
+          <textarea id="noteInput" placeholder="Add a note..." rows="3"></textarea>
+          <button class="btn-add-note" onclick="addNote()">💬 Add Note</button>
+        </div>
+      </div>
+
+      <!-- Attachments Section -->
+      <div class="modal-attachments" id="attachmentsSection">
+        <h3>📎 Attachments</h3>
+        <div id="attachmentsList" class="attachments-list">
+          <!-- Attachments will be loaded here -->
+        </div>
+        <div class="attachment-upload">
+          <input type="file" id="fileInput" multiple style="display:none;" onchange="handleFileSelect(event)" />
+          <button class="btn-upload" onclick="document.getElementById('fileInput').click()">📎 Upload Files</button>
+          <span id="uploadStatus" class="upload-status"></span>
+        </div>
       </div>
     </div>
   </div>
