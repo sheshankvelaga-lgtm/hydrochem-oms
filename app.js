@@ -4,7 +4,6 @@
 const CLIENT_ID = '611448944135-g8ajh2ap7u6phcl1dr5q8ag4e3kc9n9r.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyAO_A0iOhJbDgl3y7AXCFVNWSdddaDelqQ';
 
-// ✅ UPDATED WEB APP URL
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwu_1bPiNu0LvPbIOnNGU4yWymRn6MyHFZnvyZAbTh477GnDpncj810YPI8QD9q-epKhQ/exec';
 
 const ADMIN_USERS = [
@@ -23,7 +22,6 @@ let gisInited = false;
 let currentUser = null;
 let isAdmin = false;
 
-// Data cache
 let dealsData = [];
 let productsData = [];
 let ordersData = [];
@@ -150,7 +148,7 @@ function handleSignoutClick() {
 }
 
 // ===============================================
-// API CALLS TO APPS SCRIPT (OPTIMIZED)
+// API CALLS TO APPS SCRIPT
 // ===============================================
 async function callAppsScriptWithResponse(action, params = {}) {
   const payload = {
@@ -177,7 +175,7 @@ async function callAppsScriptWithResponse(action, params = {}) {
 }
 
 // ===============================================
-// DATA LOADING (OPTIMIZED - NO DELAYS)
+// DATA LOADING
 // ===============================================
 async function loadAllData() {
   try {
@@ -255,6 +253,7 @@ async function loadOrders() {
     const result = await callAppsScriptWithResponse('getOrders');
     ordersData = result.orders || [];
     console.log('Loaded orders:', ordersData.length);
+    populateOwnerFilter();
   } catch (err) {
     console.error('Error loading orders:', err);
     throw err;
@@ -267,6 +266,7 @@ async function loadOrders() {
 async function performSearch() {
   const query = document.getElementById('searchInput').value;
   const status = document.getElementById('statusFilter').value;
+  const owner = document.getElementById('ownerFilter').value;
   
   try {
     showToast('Searching...');
@@ -275,7 +275,13 @@ async function performSearch() {
       status
     });
     
-    ordersData = result.orders || [];
+    let orders = result.orders || [];
+    
+    if (owner && owner !== 'all') {
+      orders = orders.filter(order => order.createdBy === owner);
+    }
+    
+    ordersData = orders;
     renderKanban();
     showToast(`Found ${ordersData.length} orders`);
   } catch (err) {
@@ -286,9 +292,23 @@ async function performSearch() {
 function clearSearch() {
   document.getElementById('searchInput').value = '';
   document.getElementById('statusFilter').value = 'all';
+  document.getElementById('ownerFilter').value = 'all';
   loadOrders().then(() => {
     renderKanban();
     showToast('Search cleared');
+  });
+}
+
+function populateOwnerFilter() {
+  const owners = [...new Set(ordersData.map(order => order.createdBy))].sort();
+  const select = document.getElementById('ownerFilter');
+  select.innerHTML = '<option value="all">All Owners</option>';
+  
+  owners.forEach(owner => {
+    const option = document.createElement('option');
+    option.value = owner;
+    option.textContent = owner;
+    select.appendChild(option);
   });
 }
 
@@ -338,7 +358,7 @@ function updateRemoveButtons() {
 }
 
 // ===============================================
-// ORDER CREATION (OPTIMIZED)
+// ORDER CREATION
 // ===============================================
 async function createOrder() {
   const dealName = document.getElementById('dealSelect').value;
@@ -375,7 +395,6 @@ async function createOrder() {
   try {
     showToast('Creating order...');
     
-    // Create order in background
     const createPromise = callAppsScriptWithResponse('createOrder', {
       orderId,
       dealName,
@@ -388,7 +407,6 @@ async function createOrder() {
       custom2
     });
 
-    // Clear form immediately (optimistic)
     document.getElementById('dealSelect').value = '';
     document.getElementById('discountInput').value = '';
     document.getElementById('addressInput').value = '';
@@ -416,10 +434,8 @@ async function createOrder() {
     productRowCount = 1;
     updateProductDropdowns();
 
-    // Wait for creation to complete
     await createPromise;
     
-    // Add optimistically to UI
     const newOrder = {
       rowIndex: 0,
       id: orderId,
@@ -440,15 +456,14 @@ async function createOrder() {
     
     ordersData.push(newOrder);
     
-    // Just render the new card, don't reload everything
     const placedLane = document.getElementById('lane-placed');
     const card = createCard(newOrder);
     placedLane.appendChild(card);
     
-    // Update count
     const count = document.getElementById('count-placed');
     count.textContent = parseInt(count.textContent) + 1;
     
+    populateOwnerFilter();
     showToast(`Order created! Email sent.`);
   } catch (err) {
     console.error('Error creating order:', err);
@@ -529,7 +544,7 @@ function createCard(order) {
 }
 
 // ===============================================
-// ORDER DETAIL MODAL (WITH NOTES & ATTACHMENTS)
+// ORDER DETAIL MODAL
 // ===============================================
 async function openOrderModal(order) {
   currentOrderId = order.id;
@@ -632,7 +647,6 @@ async function openOrderModal(order) {
   
   modal.classList.add('show');
   
-  // Load notes and attachments
   await loadNotes(order.id);
   await loadAttachments(order.id);
 }
@@ -792,7 +806,7 @@ async function uploadFile(file) {
 }
 
 // ===============================================
-// SAVE LR NUMBER (OPTIMIZED - NO RELOAD)
+// SAVE LR NUMBER
 // ===============================================
 async function saveLRNumber(orderId) {
   const lrInput = document.getElementById('lrNumberEdit');
@@ -808,7 +822,6 @@ async function saveLRNumber(orderId) {
       lrNumber
     });
     
-    // Update local cache (no reload needed)
     const order = ordersData.find(o => o.id === orderId);
     if (order) {
       order.lrNumber = lrNumber;
@@ -816,7 +829,6 @@ async function saveLRNumber(orderId) {
     
     showToast('LR Number saved!');
     
-    // Just update the modal, don't reload everything
     setTimeout(() => {
       const updatedOrder = ordersData.find(o => o.id === orderId);
       if (updatedOrder) {
@@ -831,7 +843,7 @@ async function saveLRNumber(orderId) {
 }
 
 // ===============================================
-// DRAG AND DROP (OPTIMIZED - INSTANT UI)
+// DRAG AND DROP
 // ===============================================
 function setupDragAndDrop(card) {
   card.addEventListener('dragstart', (e) => {
@@ -867,19 +879,16 @@ function setupDropZone(lane) {
     const newStatus = lane.dataset.status;
     const oldStatus = draggingCard.closest('.lane').dataset.status;
     
-    // OPTIMISTIC UPDATE: Update UI immediately
     lane.appendChild(draggingCard);
     updateCountsOptimistic(oldStatus, newStatus);
     showToast('Updating...');
     
-    // Update in background
     try {
       await callAppsScriptWithResponse('updateOrderStatus', {
         orderId,
         newStatus
       });
       
-      // Update local cache
       const order = ordersData.find(o => o.id === orderId);
       if (order) {
         order.status = newStatus;
@@ -889,7 +898,6 @@ function setupDropZone(lane) {
     } catch (err) {
       console.error('Error updating order:', err);
       showToast('Error: ' + err.message, true);
-      // Revert UI on error
       await loadOrders();
       renderKanban();
     }
@@ -897,17 +905,15 @@ function setupDropZone(lane) {
 }
 
 function updateCountsOptimistic(fromStatus, toStatus) {
-  // Decrease count in old lane
   const fromCount = document.getElementById(`count-${fromStatus}`);
   fromCount.textContent = parseInt(fromCount.textContent) - 1;
   
-  // Increase count in new lane
   const toCount = document.getElementById(`count-${toStatus}`);
   toCount.textContent = parseInt(toCount.textContent) + 1;
 }
 
 // ===============================================
-// DELETE ORDER (OPTIMIZED)
+// DELETE ORDER
 // ===============================================
 async function deleteOrder(orderId) {
   if (!isAdmin) {
@@ -922,7 +928,6 @@ async function deleteOrder(orderId) {
   try {
     showToast('Deleting...');
     
-    // Find the card and remove it immediately (optimistic)
     const card = document.querySelector(`[data-order-id="${orderId}"]`);
     const lane = card ? card.closest('.lane') : null;
     const status = lane ? lane.dataset.status : null;
@@ -930,26 +935,22 @@ async function deleteOrder(orderId) {
     if (card) {
       card.remove();
       
-      // Update count
       if (status) {
         const count = document.getElementById(`count-${status}`);
         count.textContent = parseInt(count.textContent) - 1;
       }
     }
     
-    // Delete in background
     await callAppsScriptWithResponse('deleteOrder', {
       orderId
     });
     
-    // Update local cache
     ordersData = ordersData.filter(o => o.id !== orderId);
-    
+    populateOwnerFilter();
     showToast('Order deleted');
   } catch (err) {
     console.error('Error deleting order:', err);
     showToast('Error: ' + err.message, true);
-    // Reload on error
     await loadOrders();
     renderKanban();
   }
